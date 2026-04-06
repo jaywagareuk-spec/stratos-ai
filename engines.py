@@ -93,9 +93,11 @@ class DataEngine:
 
 class StratOS_Orchestrator:
     def __init__(self, kb, api_key):
+        # This configuration forces the use of the stable v1 API
         genai.configure(api_key=api_key)
-        # Use 'models/gemini-1.5-flash' to be ultra-explicit
-        self.model = genai.GenerativeModel('models/gemini-1.5-flash') 
+        # Use 'gemini-1.5-flash' without the 'models/' prefix or '-latest'
+        # The library handles the mapping automatically if the version is >=0.8.3
+        self.model = genai.GenerativeModel('gemini-1.5-flash') 
         self.kb = kb
 
     def run_loop(self, problem, stats):
