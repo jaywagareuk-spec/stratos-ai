@@ -14,7 +14,8 @@ if 'kb' not in st.session_state:
 # Sidebar
 with st.sidebar:
     st.header("1. Configuration")
-    api_key = st.text_input("Enter Google API Key", type="password")
+    # Checks if the key is in the "Secret Vault" first, otherwise asks the user
+api_key = st.secrets.get("AIzaSyBamfqYWmB72jcqpDPmqKRVEOd9_0TJ37s") or st.text_input("AIzaSyBamfqYWmB72jcqpDPmqKRVEOd9_0TJ37s", type="password")
     
     st.header("2. Knowledge Ingestion")
     uploaded_pdf = st.file_uploader("Upload Market Reports (PDF)", type="pdf")
