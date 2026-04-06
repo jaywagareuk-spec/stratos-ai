@@ -12,10 +12,11 @@ if 'kb' not in st.session_state:
     st.session_state.kb = KnowledgeEngine()
 
 # Sidebar
+# Sidebar
 with st.sidebar:
     st.header("1. Configuration")
-    # Checks if the key is in the "Secret Vault" first, otherwise asks the user
-api_key = st.secrets.get("AIzaSyBamfqYWmB72jcqpDPmqKRVEOd9_0TJ37s") or st.text_input("AIzaSyBamfqYWmB72jcqpDPmqKRVEOd9_0TJ37s", type="password")
+    # Check for secret key first, then fall back to input box
+    api_key = st.secrets.get("GOOGLE_API_KEY") or st.text_input("Enter Google API Key", type="password")
     
     st.header("2. Knowledge Ingestion")
     uploaded_pdf = st.file_uploader("Upload Market Reports (PDF)", type="pdf")
