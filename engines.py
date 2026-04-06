@@ -96,7 +96,7 @@ class StratOS_Orchestrator:
         genai.configure(api_key=api_key)
         self.kb = kb
         # We define a list of models to try in order of speed/availability
-        self.model_stack = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro']
+        self.model_stack = ['models/gemini-1.5-flash', 'models/gemini-1.5-pro', 'gemini-1.5-flash']
 
     def run_loop(self, problem, stats):
         """The 'Self-Healing' Logic Loop"""
