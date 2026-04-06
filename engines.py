@@ -129,6 +129,34 @@ class StratOS_Orchestrator:
         return "CRITICAL ERROR: Strategy Engine unavailable. Please check API Key permissions or Quotas."
 
     def run_loop(self, problem, stats):
+        context = self.kb.query(problem)
+        
+        prompt = (
+            f"SYSTEM: Act as a McKinsey Senior Partner. Use the Pyramid Principle.\n"
+            f"MARKET CONTEXT: {context}\n"
+            f"QUANTITATIVE DATA: {stats}\n"
+            f"CLIENT CHALLENGE: {problem}\n\n"
+            "DELIVERABLE: Provide a Governing Thought followed by 3 MECE strategic pillars. "
+            "Ensure the data trends are cited in your reasoning."
+        )
+
+        for model_name in self.model_stack:
+            try:
+                model = genai.GenerativeModel(model_name)
+                # We add a tiny delay (1 second) to prevent hitting that 5 RPM limit too fast
+                import time
+                time.sleep(1) 
+                
+                response = model.generate_content(prompt)
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                print(f"⚠️ Failover: {model_name} failed. Error: {str(e)}")
+                continue 
+        
+        return "CRITICAL ERROR: Strategy Engine unavailable. Please check API Key permissions or Quotas."
+
+    def run_loop(self, problem, stats):
         """The 'Self-Healing' Logic Loop with Version Failover"""
         context = self.kb.query(problem)
         
