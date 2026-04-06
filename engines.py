@@ -62,36 +62,29 @@ class DataEngine:
         except Exception as e:
             return None
 
-    # --- NEW FEATURE: AI REALISE (Data Readiness Audit) ---
     def run_ai_realise_audit(self, df):
-        """Lancia Methodology: Audits data maturity for AI implementation"""
+        """Lancia AI Realise: Data Maturity Scoring"""
         if df is None or df.empty:
             return {"score": 0, "status": "NO DATA", "color": "red"}
         
-        null_pct = df.isnull().sum().mean() / len(df) if len(df) > 0 else 1
-        completeness_score = (1 - null_pct) * 100
+        completeness = (1 - df.isnull().mean().mean()) * 100
+        numeric_density = (len(df.select_dtypes(include=[np.number]).columns) / len(df.columns)) * 100
         
-        # Check for numeric density (Lancia likes quantitative depth)
-        numeric_cols = len(df.select_dtypes(include=[np.number]).columns)
-        total_cols = len(df.columns)
-        density_score = (numeric_cols / total_cols) * 100 if total_cols > 0 else 0
+        maturity_score = round((completeness + numeric_density) / 2, 1)
         
-        maturity_score = (completeness_score + density_score) / 2
-        
-        if maturity_score > 80:
-            return {"score": round(maturity_score, 1), "status": "AI READY", "color": "green"}
-        elif maturity_score > 50:
-            return {"score": round(maturity_score, 1), "status": "NEEDS STEWARDSHIP", "color": "orange"}
+        if maturity_score > 85:
+            return {"score": maturity_score, "status": "STRATEGICALLY READY", "color": "green"}
+        elif maturity_score > 60:
+            return {"score": maturity_score, "status": "DATA REMEDIATION ADVISED", "color": "orange"}
         else:
-            return {"score": round(maturity_score, 1), "status": "UNSTRUCTURED / UNREADY", "color": "red"}
+            return {"score": maturity_score, "status": "CRITICAL DATA GAPS", "color": "red"}
 
     def analyze_and_plot(self, df):
         numeric = df.select_dtypes(include=[np.number])
         if numeric.empty:
             return {"Status": "No numeric trends found."}, []
         
-        stats = {}
-        charts = []
+        stats, charts = {}, []
         sns.set_theme(style="whitegrid")
         
         for col in numeric.columns[:3]:
@@ -134,9 +127,82 @@ class StratOS_Orchestrator:
         self.kb = kb
         self.model_stack = ['gemini-2.0-flash', 'models/gemini-2.0-flash', 'gemini-1.5-flash']
 
-    # --- UPDATED: LANCIA PERSONA DATABASE ---
     def get_persona_database(self):
+        """Core Lancia Service Lines"""
         return {
+            "Retail": "Consumer Analyst. Focus: Inventory churn, CAC/LTV, and omnichannel conversion.",
             "Logistics": "Supply Chain Architect. Focus: Lead times, fuel volatility, and port congestion.",
-            "Utilities": "Regulatory Strategist. Focus: Grid stability, ESG compliance, and CAPEX.",
-            "Retail": "Consumer Behavioral Analyst. Focus: Inventory churn and
+            "Utilities": "Infrastructure Strategist. Focus: Grid stability, ESG, and CAPEX modeling.",
+            "Manufacturing": "Lean Specialist. Focus: OEE, waste reduction, and unit-cost optimization."
+        }
+
+    def run_debate(self, problem, stats, industry):
+        lancia_context = self.get_persona_database().get(industry, "Senior Strategy Partner")
+        agents = {
+            "The Visionary (Growth)": f"Focus on market capture. Industry context: {lancia_context}",
+            "The Conservator (Risk)": f"Focus on cash flow and compliance. Industry context: {lancia_context}",
+            "The Operationalist (Execution)": f"Focus on scalability. Industry context: {lancia_context}"
+        }
+        
+        transcript = ""
+        context = self.kb.query(problem)
+        
+        for name, persona in agents.items():
+            prompt = (f"ROLE: {name}. {persona}\nINDUSTRY: {industry}\n"
+                      f"DATA: {stats}\nCONTEXT: {context}\nTASK: 2-sentence solution for: {problem}")
+            response = self.call_gemini(prompt)
+            transcript += f"**{name}**: {response}\n\n"
+        
+        synthesis = (f"Synthesize this debate into a unified 3-pillar strategy for {industry}:\n\n{transcript}\n\n"
+                     "Deliverable: Pyramid Principle (Governing Thought + 3 MECE Pillars).")
+        return transcript, self.call_gemini(synthesis)
+
+    def generate_lancia_roadmap(self, strategy_text):
+        """Lancia 90-Day Implementation Methodology"""
+        prompt = (f"Act as a Lancia Transformation Lead. Based on: {strategy_text}\n"
+                  "Create a 90-Day Roadmap table: Month 1 (Mobilize), Month 2 (Execute), Month 3 (Realize). "
+                  "Provide 2 clear KPIs per month.")
+        return self.call_gemini(prompt)
+
+    def run_red_team_audit(self, strategy):
+        prompt = f"Act as a cynical Auditor. Find 3 structural failure points in: {strategy}. Provide mitigations."
+        return self.call_gemini(prompt)
+
+    def call_gemini(self, prompt):
+        for model_name in self.model_stack:
+            try:
+                model = genai.GenerativeModel(model_name)
+                time.sleep(1) 
+                response = model.generate_content(prompt)
+                if response and response.text:
+                    return response.text
+            except:
+                continue
+        return "CRITICAL ERROR: Strategy Engine unavailable."
+
+class ReportEngine:
+    def run_results365_check(self, strategy_output):
+        """Lancia Results365: Performance Health Diagnostic"""
+        return (f"Act as the Results365 Health Auditor. Evaluate this strategy: {strategy_output}\n"
+                "Identify 3 risks that would cause project slippage. Rate delivery confidence (0-100%).")
+
+    def create_deck(self, summary, charts, roadmap=""):
+        prs = Presentation()
+        # Slide 1: Synthesis
+        slide = prs.slides.add_slide(prs.slide_layouts[1])
+        slide.shapes.title.text = "Executive Strategy Mandate"
+        slide.shapes.placeholders[1].text = summary[:1500]
+        # Slide 2: Roadmap
+        if roadmap:
+            slide_r = prs.slides.add_slide(prs.slide_layouts[1])
+            slide_r.shapes.title.text = "90-Day Implementation Roadmap"
+            slide_r.shapes.placeholders[1].text = roadmap[:1500]
+        # Chart Slides
+        for img in charts:
+            if os.path.exists(img):
+                slide = prs.slides.add_slide(prs.slide_layouts[6])
+                slide.shapes.add_picture(img, Inches(0.5), Inches(1.5), width=Inches(9))
+        
+        path = "Lancia_Strategy_Report.pptx"
+        prs.save(path)
+        return path
