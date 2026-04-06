@@ -23,7 +23,7 @@ st.markdown("---")
 with st.sidebar:
     st.header("1. Configuration")
     # Secret Key check or Manual Input
-    api_key = st.secrets.get("AIzaSyBamfqYWmB72jcqpDPmqKRVEOd9_0TJ37sY") or st.text_input("AIzaSyBamfqYWmB72jcqpDPmqKRVEOd9_0TJ37s", type="password")
+    api_key = AIzaSyBamfqYWmB72jcqpDPmqKRVEOd9_0TJ37s
     
     st.header("2. Knowledge Ingestion")
     st.info("Upload market reports or competitor PDFs to 'prime' the AI's memory.")
