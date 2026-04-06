@@ -5,11 +5,17 @@ from engines import KnowledgeEngine, DataEngine, StratOS_Orchestrator, ReportEng
 # Page Config
 st.set_page_config(page_title="StratOS v10 | Lancia Suite", layout="wide")
 
-# Initialize Session State
+# --- INITIALIZE SESSION STATE ---
+# This ensures data persists across tab switches and button clicks
 if 'kb' not in st.session_state:
     st.session_state.kb = KnowledgeEngine()
     st.session_state.de = DataEngine()
     st.session_state.re = ReportEngine()
+    # Storage for generated outputs
+    st.session_state.final_output = None
+    st.session_state.roadmap = None
+    st.session_state.transcript = None
+    st.session_state.charts = []
 
 # Custom CSS
 st.markdown("""
@@ -18,7 +24,7 @@ st.markdown("""
     .stButton>button { background-color: #074050; color: white; width: 100%; border-radius: 5px; }
     .stTabs [data-baseweb="tab-list"] { gap: 24px; }
     .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #f0f2f6; border-radius: 5px 5px 0 0; }
-    .stTabs [aria-selected="true"] { background-color: #074050 !format; color: white !important; }
+    .stTabs [aria-selected="true"] { background-color: #074050 !important; color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -28,9 +34,10 @@ st.caption("Powered by Lancia Consulting Methodology: AI Realise & Results365")
 # Sidebar Configuration
 with st.sidebar:
     st.header("1. Configuration")
+    # API Key - Ensure this is valid
     api_key = "AIzaSyBi-p2SQk95Fj1YL4U4GfXLprCbQsi9wIo" 
     
-    # Updated to include Lancia sectors
+    # Initialize Orchestrator to get industries
     orch_init = StratOS_Orchestrator(st.session_state.kb, api_key)
     industry_choice = st.selectbox(
         "Lancia Service Line / Sector", 
@@ -47,18 +54,16 @@ with st.sidebar:
             count = st.session_state.kb.ingest_pdf(uploaded_pdf)
             st.success(f"Indexed {count} fragments.")
 
+    st.divider()
+    st.header("3. Client Data")
+    uploaded_data = st.file_uploader("Upload Telemetry (CSV/XLSX)", type=["csv", "xlsx"])
+
 # --- MAIN INTERFACE: THE LANCIA TABS ---
 tab_audit, tab_strategy, tab_health = st.tabs([
     "🛡️ AI Realise (Data Audit)", 
     "🚀 Strategy Engine", 
     "📊 Results365 (Project Health)"
 ])
-
-# Global file uploader to be used across tabs
-with st.sidebar:
-    st.divider()
-    st.header("3. Client Data")
-    uploaded_data = st.file_uploader("Upload Telemetry (CSV/XLSX)", type=["csv", "xlsx"])
 
 # --- TAB 1: AI REALISE ---
 with tab_audit:
@@ -89,6 +94,7 @@ with tab_strategy:
 
     with col2:
         st.header("Output & Deliverables")
+        
         if generate_btn:
             if not uploaded_data or not problem:
                 st.error("Missing Data or Challenge definition.")
@@ -100,7 +106,7 @@ with tab_strategy:
                     
                     st.write("🏛️ Convening Multi-Agent Debate...")
                     orch = StratOS_Orchestrator(st.session_state.kb, api_key)
-                    debate_transcript, final_output = orch.run_debate(problem, stats, industry_choice)
+                    transcript, final_output = orch.run_debate(problem, stats, industry_choice)
                     
                     st.write("📅 Generating 90-Day Roadmap...")
                     roadmap = orch.generate_lancia_roadmap(final_output)
@@ -109,44 +115,54 @@ with tab_strategy:
                     sens_path = st.session_state.de.generate_sensitivity(target_goal)
                     charts.append(sens_path)
                     
+                    # Store in session state so Tab 3 can see it
+                    st.session_state.final_output = final_output
+                    st.session_state.roadmap = roadmap
+                    st.session_state.transcript = transcript
+                    st.session_state.charts = charts
+                    st.session_state.sens_path = sens_path
+                    
                     status.update(label="Strategy & Roadmap Finalized!", state="complete")
 
-                # Display Section
-                res_col1, res_col2 = st.columns([1.5, 1])
-                with res_col1:
-                    st.subheader("📋 Executive Synthesis")
-                    st.markdown(final_output)
-                    
-                    st.subheader("📅 Lancia 90-Day Implementation Roadmap")
-                    st.success(roadmap)
-                    
-                    st.image(sens_path, caption="Strategic Sensitivity Graph")
+        # Persistent Display (Shows data if it exists in session state)
+        if st.session_state.final_output:
+            res_col1, res_col2 = st.columns([1.5, 1])
+            with res_col1:
+                st.subheader("📋 Executive Synthesis")
+                st.markdown(st.session_state.final_output)
+                
+                st.subheader("📅 Lancia 90-Day Implementation Roadmap")
+                st.success(st.session_state.roadmap)
+                
+                st.image(st.session_state.sens_path, caption="Strategic Sensitivity Graph")
 
-                with res_col2:
-                    st.subheader("🗣️ Agent Debate")
-                    st.markdown(debate_transcript)
-                    
-                    with st.expander("🛡️ View Red Team Risk Audit"):
-                        risk_audit = orch.run_red_team_audit(final_output)
-                        st.warning(risk_audit)
+            with res_col2:
+                st.subheader("🗣️ Agent Debate")
+                st.markdown(st.session_state.transcript)
+                
+                with st.expander("🛡️ View Red Team Risk Audit"):
+                    risk_audit = orch_init.run_red_team_audit(st.session_state.final_output)
+                    st.warning(risk_audit)
 
-                # PPTX Generation
-                ppt_path = st.session_state.re.create_deck(final_output, charts, roadmap)
-                with open(ppt_path, "rb") as f:
-                    st.download_button("📥 Download PowerPoint Deck", f, file_name="Lancia_Strategy_Report.pptx")
+            # PPTX Generation
+            ppt_path = st.session_state.re.create_deck(
+                st.session_state.final_output, 
+                st.session_state.charts, 
+                st.session_state.roadmap
+            )
+            with open(ppt_path, "rb") as f:
+                st.download_button("📥 Download PowerPoint Deck", f, file_name="Lancia_Strategy_Report.pptx")
 
 # --- TAB 3: RESULTS365 ---
 with tab_health:
     st.header("Results365: Transformation Health-Check")
     st.write("Ensuring long-term value realization and project stability.")
     
-    # This tab looks for a generated strategy to audit
-    if 'final_output' in locals():
+    if st.session_state.final_output:
         if st.button("Run Health-Check Audit"):
             with st.spinner("Analyzing for delivery risks..."):
                 orch = StratOS_Orchestrator(st.session_state.kb, api_key)
-                # Using the specialized logic from engines
-                health_prompt = st.session_state.re.run_results365_check(final_output)
+                health_prompt = st.session_state.re.run_results365_check(st.session_state.final_output)
                 health_results = orch.call_gemini(health_prompt)
                 st.markdown("### Results365 Findings")
                 st.info(health_results)
