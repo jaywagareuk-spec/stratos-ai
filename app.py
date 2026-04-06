@@ -14,7 +14,7 @@ st.markdown("""
     .main { background-color: #f5f7f9; }
     .stButton>button { background-color: #074050; color: white; width: 100%; border-radius: 5px; }
     </style>
-    """, unsafe_allow_view_html=True)
+    """, unsafe_allow_html=True)
 
 st.title("🏛️ StratOS v10: Executive Strategy Mandate")
 st.markdown("---")
