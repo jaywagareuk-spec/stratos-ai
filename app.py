@@ -22,17 +22,14 @@ st.markdown("---")
 # Sidebar Configuration
 with st.sidebar:
     st.header("1. Configuration")
-    # API Key from your original code
     api_key = "AIzaSyBi-p2SQk95Fj1YL4U4GfXLprCbQsi9wIo" 
     
-    # --- NEW FEATURE: INDUSTRY SELECTOR (The Context) ---
     st.header("🏢 Industry Context")
     industry_choice = st.selectbox(
         "Target Industry Benchmark", 
         ["Retail", "SaaS", "Manufacturing"]
     )
     
-    # --- NEW FEATURE: SCENARIO SLIDER (The Math) ---
     st.header("📊 Scenario Modeling")
     target_goal = st.slider("Target Margin Improvement (%)", 5, 50, 15)
     
@@ -45,7 +42,7 @@ with st.sidebar:
             st.success(f"Indexed {count} text fragments.")
 
 # Main Dashboard Area
-col1, col2 = st.columns([1, 1])
+col1, col2 = st.columns([1, 1.2]) # Slightly wider right column for debate view
 
 with col1:
     st.header("3. Strategic Input")
@@ -67,38 +64,49 @@ with col2:
         elif not problem:
             st.error("Please define the business challenge.")
         else:
-            with st.spinner("Orchestrating Strategy... (Multi-Agent Analysis)"):
-                # 1. Process Data
+            # --- NEW FEATURE: LOGIC MAPPING (Visual Chain of Thought) ---
+            with st.status("🗺️ Mapping Strategic Logic...", expanded=True) as status:
+                st.write("📊 Analyzing historical data telemetry...")
                 de = DataEngine()
                 df = de.clean_and_load(uploaded_data)
                 
-                if df is None:
-                    st.error("Critical Error: Could not read data file.")
-                else:
-                    # 2. Run Analytics
+                if df is not None:
                     stats, charts = de.analyze_and_plot(df)
                     
-                    # 3. Run AI Orchestrator (Primary Strategist Agent)
+                    st.write("🏛️ Convening Multi-Agent Consensus Debate...")
                     orch = StratOS_Orchestrator(st.session_state.kb, api_key)
-                    # Sends industry_choice so AI knows which Benchmarks to use
-                    final_output = orch.run_loop(problem, stats, industry_choice)
+                    # Use the new run_debate function
+                    debate_transcript, final_output = orch.run_debate(problem, stats, industry_choice)
                     
-                    # 4. Display Executive Results
-                    st.subheader("Executive Synthesis")
-                    st.markdown(final_output)
+                    st.write("📈 Modeling Profit Sensitivity Curves...")
+                    # Pass the slider value to the math engine
+                    sens_path = de.generate_sensitivity(target_goal)
+                    charts.append(sens_path) # Include in PPTX
                     
-                    # --- NEW FEATURE: BLUE INFO BOX (Scenario Result) ---
-                    # Calculates efficiency gain needed based on slider
-                    st.info(f"💡 **Scenario Result:** To achieve a **{target_goal}%** boost, "
-                            f"StratOS identifies a required efficiency gain of ~**{target_goal * 0.8:.1f}%** "
-                            f"relative to current operational spend.")
+                    status.update(label="Strategic Logic Mapped!", state="complete", expanded=False)
 
-                    # --- NEW FEATURE: RED TEAM AUDIT (The Second Agent) ---
-                    with st.expander("🛡️ View Red Team Risk Audit"):
-                        st.write("Auditing strategy for execution blindspots...")
-                        # Secondary API call to the "Auditor" agent
-                        risk_audit = orch.run_red_team_audit(final_output)
-                        st.warning(risk_audit)
+                    # --- DISPLAY SECTION ---
+                    # Left sub-column for Main Output, Right sub-column for Debate
+                    res_col1, res_col2 = st.columns([1.5, 1])
+                    
+                    with res_col1:
+                        st.subheader("📋 Executive Synthesis")
+                        st.markdown(final_output)
+                        
+                        st.image(sens_path, caption="Strategic Sensitivity: Efficiency vs. Margin")
+                        
+                        st.info(f"💡 **Scenario Analysis:** To achieve a **{target_goal}%** boost, "
+                                f"StratOS identifies a required efficiency gain of ~**{target_goal * 0.82:.1f}%** "
+                                f"relative to current OpEx.")
+
+                    with res_col2:
+                        st.subheader("🗣️ Agent Debate")
+                        st.markdown(debate_transcript)
+                        
+                        with st.expander("🛡️ View Red Team Risk Audit"):
+                            st.write("Auditing strategy for execution blindspots...")
+                            risk_audit = orch.run_red_team_audit(final_output)
+                            st.warning(risk_audit)
                     
                     # 5. Generate PPTX
                     re = ReportEngine()
@@ -112,9 +120,10 @@ with col2:
                             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
                         )
                     
-                    # Data Preview
                     with st.expander("View Sanitized Data Preview"):
                         st.dataframe(df.head())
+                else:
+                    st.error("Critical Error: Could not read data file.")
 
 st.markdown("---")
 st.caption("StratOS v10 | Proprietary Augmented Consulting Framework")
