@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import google.generativeai as genai
 import chromadb
+import time
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pptx import Presentation
@@ -12,7 +13,6 @@ from pptx.util import Inches
 
 class KnowledgeEngine:
     def __init__(self):
-        # Use PersistentClient to avoid memory resets on Streamlit
         self.chroma_client = chromadb.Client()
         try:
             self.collection = self.chroma_client.create_collection(name="strat_vault")
@@ -43,7 +43,6 @@ class KnowledgeEngine:
 
 class DataEngine:
     def clean_and_load(self, file_object):
-        """Automatically detects file type and cleans data for the AI."""
         try:
             if file_object.name.endswith('.csv'):
                 df = pd.read_csv(file_object)
@@ -56,7 +55,6 @@ class DataEngine:
             for col in df.columns:
                 if df[col].dtype == 'object':
                     try:
-                        # Clean currency/percentage symbols
                         df[col] = df[col].replace(r'[\$,%]', '', regex=True).astype(float)
                     except:
                         pass 
@@ -90,136 +88,58 @@ class DataEngine:
 
 class StratOS_Orchestrator:
     def __init__(self, kb, api_key):
-        # We configure using the most stable versioning
         genai.configure(api_key=api_key)
         self.kb = kb
-        
-        # We MUST use 2.5 Flash as the primary because that is what your 
-        # dashboard is restricted to.
-        self.model_stack = [
-            'gemini-2.5-flash', 
-            'models/gemini-2.5-flash',
-            'gemini-1.5-flash' # Backup only
-        ]
+        # Optimized model stack based on your specific dashboard permissions
+        self.model_stack = ['gemini-2.5-flash', 'models/gemini-2.5-flash', 'gemini-1.5-flash']
 
-    def run_loop(self, problem, stats):
-        """The 'Self-Healing' Logic Loop for 2.5 Flash"""
+    def run_loop(self, problem, stats, industry="Retail"):
+        """Primary Strategist Agent with Benchmark Integration"""
+        benchmarks = self.get_benchmarks(industry)
         context = self.kb.query(problem)
         
         prompt = (
             f"SYSTEM: Act as a McKinsey Senior Partner. Use the Pyramid Principle.\n"
+            f"INDUSTRY BENCHMARKS: {benchmarks}\n"
             f"MARKET CONTEXT: {context}\n"
             f"QUANTITATIVE DATA: {stats}\n"
             f"CLIENT CHALLENGE: {problem}\n\n"
             "DELIVERABLE: Provide a Governing Thought followed by 3 MECE strategic pillars. "
-            "Ensure the data trends are cited in your reasoning."
+            "Critique the client's data against the industry benchmarks provided."
         )
+        return self.call_gemini(prompt)
 
-        for model_name in self.model_stack:
-            try:
-                # We initialize the model with the exact name from your dashboard
-                model = genai.GenerativeModel(model_name)
-                
-                # Small safety delay to respect your 5 RPM (Requests Per Minute) limit
-                import time
-                time.sleep(1) 
-                
-                response = model.generate_content(prompt)
-                
-                if response and response.text:
-                    return response.text
-            except Exception as e:
-                # This will print the real reason for failure in your terminal
-                print(f"⚠️ Failover: {model_name} failed. Error: {str(e)}")
-                continue 
-        
-        return "CRITICAL ERROR: Strategy Engine unavailable. Your API Key is active but restricted to Gemini 2.5 Flash. Please ensure you are not hitting the 5 RPM limit."
-
-    def run_loop(self, problem, stats):
-        context = self.kb.query(problem)
-        
-        prompt = (
-            f"SYSTEM: Act as a McKinsey Senior Partner. Use the Pyramid Principle.\n"
-            f"MARKET CONTEXT: {context}\n"
-            f"QUANTITATIVE DATA: {stats}\n"
-            f"CLIENT CHALLENGE: {problem}\n\n"
-            "DELIVERABLE: Provide a Governing Thought followed by 3 MECE strategic pillars. "
-            "Ensure the data trends are cited in your reasoning."
+    def run_red_team_audit(self, strategy):
+        """Feature: Multi-Agent Risk Audit (Adversarial Thinking)"""
+        audit_prompt = (
+            f"ACT AS: A cynical Private Equity Auditor.\n"
+            f"TASK: Find 3 critical failure points or market risks in this strategy: {strategy}\n"
+            "DELIVERABLE: List failure points and brief mitigation advice."
         )
+        return self.call_gemini(audit_prompt)
 
+    def get_benchmarks(self, industry):
+        """Benchmark Repository for Competitive Intelligence"""
+        data = {
+            "Retail": "Avg Margin: 25%, Ad-to-Revenue Ratio: 8%, Shipping Cap: 12%",
+            "SaaS": "Avg Margin: 70%, LTV/CAC Ratio: 3x, Churn Cap: 5%",
+            "Manufacturing": "Avg Margin: 15%, Inventory Turnover: 6x, Logistics Cap: 20%"
+        }
+        return data.get(industry, "Standard Mid-Market KPIs")
+
+    def call_gemini(self, prompt):
+        """Unified calling logic with 1s delay to respect 5 RPM limit"""
         for model_name in self.model_stack:
             try:
                 model = genai.GenerativeModel(model_name)
-                # We add a tiny delay (1 second) to prevent hitting that 5 RPM limit too fast
-                import time
                 time.sleep(1) 
-                
                 response = model.generate_content(prompt)
                 if response and response.text:
                     return response.text
             except Exception as e:
                 print(f"⚠️ Failover: {model_name} failed. Error: {str(e)}")
-                continue 
-        
-        return "CRITICAL ERROR: Strategy Engine unavailable. Please check API Key permissions or Quotas."
-
-    def run_loop(self, problem, stats):
-        context = self.kb.query(problem)
-        
-        prompt = (
-            f"SYSTEM: Act as a McKinsey Senior Partner. Use the Pyramid Principle.\n"
-            f"MARKET CONTEXT: {context}\n"
-            f"QUANTITATIVE DATA: {stats}\n"
-            f"CLIENT CHALLENGE: {problem}\n\n"
-            "DELIVERABLE: Provide a Governing Thought followed by 3 MECE strategic pillars. "
-            "Ensure the data trends are cited in your reasoning."
-        )
-
-        for model_name in self.model_stack:
-            try:
-                model = genai.GenerativeModel(model_name)
-                # We add a tiny delay (1 second) to prevent hitting that 5 RPM limit too fast
-                import time
-                time.sleep(1) 
-                
-                response = model.generate_content(prompt)
-                if response and response.text:
-                    return response.text
-            except Exception as e:
-                print(f"⚠️ Failover: {model_name} failed. Error: {str(e)}")
-                continue 
-        
-        return "CRITICAL ERROR: Strategy Engine unavailable. Please check API Key permissions or Quotas."
-
-    def run_loop(self, problem, stats):
-        """The 'Self-Healing' Logic Loop with Version Failover"""
-        context = self.kb.query(problem)
-        
-        prompt = (
-            f"SYSTEM: Act as a McKinsey Senior Partner. Use the Pyramid Principle.\n"
-            f"MARKET CONTEXT: {context}\n"
-            f"QUANTITATIVE DATA: {stats}\n"
-            f"CLIENT CHALLENGE: {problem}\n\n"
-            "DELIVERABLE: Provide a Governing Thought followed by 3 MECE strategic pillars. "
-            "Ensure the data trends are cited in your reasoning."
-        )
-
-        for model_name in self.model_stack:
-            try:
-                # We try both naming conventions: standard and prefixed
-                for name_variant in [model_name, f"models/{model_name}"]:
-                    try:
-                        model = genai.GenerativeModel(model_name=name_variant)
-                        response = model.generate_content(prompt)
-                        if response and response.text:
-                            return response.text
-                    except:
-                        continue
-            except Exception as e:
-                print(f"⚠️ Failover: {model_name} failed. Error: {str(e)}")
-                continue 
-        
-        return "CRITICAL ERROR: Strategy Engine unavailable. Please verify API Key or regional availability."
+                continue
+        return "CRITICAL ERROR: Strategy Engine unavailable."
 
 class ReportEngine:
     def create_deck(self, summary, charts):
@@ -227,7 +147,6 @@ class ReportEngine:
         slide = prs.slides.add_slide(prs.slide_layouts[1])
         slide.shapes.title.text = "StratOS Executive Mandate"
         
-        # Prevent overflow by truncating summary if necessary
         body_shape = slide.shapes.placeholders[1]
         body_shape.text = summary[:1500] 
         
