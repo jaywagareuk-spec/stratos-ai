@@ -6,7 +6,7 @@ import seaborn as sns
 import google.generativeai as genai
 import chromadb
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pptx import Presentation
 from pptx.util import Inches
 
