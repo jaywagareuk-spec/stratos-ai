@@ -86,40 +86,87 @@ class DataEngine:
                 charts.append(path)
         return stats, charts
 
+    # --- NEW FEATURE: SENSITIVITY CURVE (The Math) ---
+    def generate_sensitivity(self, target_gain):
+        """Calculates and plots a trade-off curve for margin improvement"""
+        x = np.linspace(0, target_gain * 1.5, 20)
+        # Strategic Formula: Efficiency to Margin Mapping
+        y = 15 + (x * 0.82) 
+        
+        plt.figure(figsize=(8, 4))
+        plt.plot(x, y, color='#074050', linewidth=3, label="Profit Trajectory")
+        plt.axvline(target_gain, color='#d9534f', linestyle='--', label=f"Target: {target_goal}%")
+        plt.fill_between(x, y-2, y+2, alpha=0.1, color='#074050')
+        plt.title("Strategic Sensitivity: Efficiency vs. Projected Margin", fontsize=10)
+        plt.xlabel("OpEx Efficiency Gain (%)")
+        plt.ylabel("Projected Net Margin (%)")
+        plt.legend()
+        plt.grid(alpha=0.3)
+        
+        path = "sensitivity_plot.png"
+        plt.savefig(path, bbox_inches='tight')
+        plt.close()
+        return path
+
 class StratOS_Orchestrator:
     def __init__(self, kb, api_key):
         genai.configure(api_key=api_key)
         self.kb = kb
-        # Optimized model stack based on your specific dashboard permissions
-        self.model_stack = ['gemini-2.5-flash', 'models/gemini-2.5-flash', 'gemini-1.5-flash']
+        self.model_stack = ['gemini-2.0-flash', 'models/gemini-2.0-flash', 'gemini-1.5-flash']
+
+    # --- NEW FEATURE: MULTI-AGENT DEBATE (The Consensus Engine) ---
+    def run_debate(self, problem, stats, industry):
+        """Forces 3 personas to argue for a MECE strategy before synthesis"""
+        agents = {
+            "The Visionary (Growth)": "Prioritize market capture and high-velocity expansion.",
+            "The Conservator (Risk)": "Prioritize cash flow preservation and risk mitigation.",
+            "The Operationalist (Execution)": "Prioritize scalability and process optimization."
+        }
+        
+        transcript = ""
+        context = self.kb.query(problem)
+        
+        for name, persona in agents.items():
+            prompt = (f"ROLE: {name}. {persona}\n"
+                      f"INDUSTRY: {industry}\n"
+                      f"CLIENT DATA: {stats}\n"
+                      f"CONTEXT: {context}\n"
+                      f"TASK: Propose a 2-sentence solution for: {problem}")
+            response = self.call_gemini(prompt)
+            transcript += f"**{name}**: {response}\n\n"
+        
+        # Synthesis Pass
+        synthesis_prompt = (f"Synthesize this expert debate into a unified 3-pillar strategy for {industry}:\n\n"
+                            f"{transcript}\n\n"
+                            "Deliverable: Pyramid Principle format (Governing Thought + 3 Pillars).")
+        
+        final_mandate = self.call_gemini(synthesis_prompt)
+        return transcript, final_mandate
 
     def run_loop(self, problem, stats, industry="Retail"):
-        """Primary Strategist Agent with Benchmark Integration"""
+        """Main entry point for basic orchestration"""
         benchmarks = self.get_benchmarks(industry)
         context = self.kb.query(problem)
         
         prompt = (
-            f"SYSTEM: Act as a McKinsey Senior Partner. Use the Pyramid Principle.\n"
+            f"SYSTEM: Act as a McKinsey Senior Partner.\n"
             f"INDUSTRY BENCHMARKS: {benchmarks}\n"
             f"MARKET CONTEXT: {context}\n"
             f"QUANTITATIVE DATA: {stats}\n"
-            f"CLIENT CHALLENGE: {problem}\n\n"
-            "DELIVERABLE: Provide a Governing Thought followed by 3 MECE strategic pillars. "
-            "Critique the client's data against the industry benchmarks provided."
+            f"CHALLENGE: {problem}\n\n"
+            "Provide a Governing Thought and 3 MECE strategic pillars."
         )
         return self.call_gemini(prompt)
 
     def run_red_team_audit(self, strategy):
-        """Feature: Multi-Agent Risk Audit (Adversarial Thinking)"""
         audit_prompt = (
             f"ACT AS: A cynical Private Equity Auditor.\n"
-            f"TASK: Find 3 critical failure points or market risks in this strategy: {strategy}\n"
-            "DELIVERABLE: List failure points and brief mitigation advice."
+            f"TASK: Find 3 failure points in this strategy: {strategy}\n"
+            "DELIVERABLE: Failure points + mitigation advice."
         )
         return self.call_gemini(audit_prompt)
 
     def get_benchmarks(self, industry):
-        """Benchmark Repository for Competitive Intelligence"""
         data = {
             "Retail": "Avg Margin: 25%, Ad-to-Revenue Ratio: 8%, Shipping Cap: 12%",
             "SaaS": "Avg Margin: 70%, LTV/CAC Ratio: 3x, Churn Cap: 5%",
@@ -128,7 +175,6 @@ class StratOS_Orchestrator:
         return data.get(industry, "Standard Mid-Market KPIs")
 
     def call_gemini(self, prompt):
-        """Unified calling logic with 1s delay to respect 5 RPM limit"""
         for model_name in self.model_stack:
             try:
                 model = genai.GenerativeModel(model_name)
@@ -137,7 +183,6 @@ class StratOS_Orchestrator:
                 if response and response.text:
                     return response.text
             except Exception as e:
-                print(f"⚠️ Failover: {model_name} failed. Error: {str(e)}")
                 continue
         return "CRITICAL ERROR: Strategy Engine unavailable."
 
