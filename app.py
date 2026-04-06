@@ -125,7 +125,7 @@ with tab_strategy:
                     status.update(label="Strategy & Roadmap Finalized!", state="complete")
 
         # Persistent Display (Shows data if it exists in session state)
-        if st.session_state.final_output:
+       if st.session_state.get('final_output'):
             res_col1, res_col2 = st.columns([1.5, 1])
             with res_col1:
                 st.subheader("📋 Executive Synthesis")
