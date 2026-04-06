@@ -94,7 +94,7 @@ class DataEngine:
 class StratOS_Orchestrator:
     def __init__(self, kb, api_key):
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = genai.GenerativeModel('gemini-1.5-flash-latest')
         self.kb = kb
 
     def run_loop(self, problem, stats):
