@@ -1,55 +1,95 @@
 import streamlit as st
-import pandas as pd
 from engines import KnowledgeEngine, DataEngine, StratOS_Orchestrator, ReportEngine
 
-st.set_page_config(page_title="StratOS AI", page_icon="🏛️", layout="wide")
+# Page Config
+st.set_page_config(page_title="StratOS v10 | Strategy Engine", layout="wide")
 
-st.title("🏛️ StratOS v10: Strategy & Business Analysis")
-st.markdown("Automated Consulting Intelligence using MBB Frameworks")
-
-# Initialize engines in session state
+# Initialize Session State for the Knowledge Base
 if 'kb' not in st.session_state:
     st.session_state.kb = KnowledgeEngine()
 
-# Sidebar
-# Sidebar
+# Custom CSS for a professional "Consulting" look
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stButton>button { background-color: #074050; color: white; width: 100%; border-radius: 5px; }
+    </style>
+    """, unsafe_allow_view_html=True)
+
+st.title("🏛️ StratOS v10: Executive Strategy Mandate")
+st.markdown("---")
+
+# Sidebar Configuration
 with st.sidebar:
     st.header("1. Configuration")
-    # Check for secret key first, then fall back to input box
+    # Secret Key check or Manual Input
     api_key = st.secrets.get("GOOGLE_API_KEY") or st.text_input("Enter Google API Key", type="password")
     
     st.header("2. Knowledge Ingestion")
-    uploaded_pdf = st.file_uploader("Upload Market Reports (PDF)", type="pdf")
+    st.info("Upload market reports or competitor PDFs to 'prime' the AI's memory.")
+    uploaded_pdf = st.file_uploader("Upload PDF Reports", type="pdf")
     if uploaded_pdf and st.button("Index PDF"):
-        count = st.session_state.kb.ingest_pdf(uploaded_pdf)
-        st.success(f"Indexed {count} fragments.")
+        with st.spinner("Vectorizing Knowledge..."):
+            count = st.session_state.kb.ingest_pdf(uploaded_pdf)
+            st.success(f"Indexed {count} text fragments.")
 
-# Main Body
-st.header("3. Strategic Analysis")
-uploaded_csv = st.file_uploader("Upload Client Dataset (CSV)", type="csv")
-problem = st.text_area("What is the Business Challenge?", height=150)
+# Main Dashboard Area
+col1, col2 = st.columns([1, 1])
 
-if st.button("Generate Strategy Report"):
-    if not api_key or not uploaded_csv or not problem:
-        st.error("Missing API Key, CSV, or Business Problem!")
-    else:
-        with st.spinner("Analyzing data and generating strategy..."):
-            # Load Data
-            df = pd.read_csv(uploaded_csv)
-            
-            # Run Engines
-            de = DataEngine()
-            stats, charts = de.analyze_and_plot(df)
-            
-            orch = StratOS_Orchestrator(st.session_state.kb, api_key)
-            final_output = orch.run_loop(problem, stats)
-            
-            re = ReportEngine()
-            ppt_path = re.create_deck(final_output, charts)
-            
-            # Display Result
-            st.subheader("Executive Synthesis")
-            st.markdown(final_output)
-            
-            with open(ppt_path, "rb") as f:
-                st.download_button("📥 Download Executive PPTX", f, file_name="Strategy_Report.pptx")
+with col1:
+    st.header("3. Strategic Input")
+    uploaded_data = st.file_uploader("Upload Client Dataset (CSV or Excel)", type=["csv", "xlsx"])
+    problem = st.text_area("What is the Business Challenge?", 
+                          placeholder="Example: Analyze our Q3 margin erosion and suggest a 3-step recovery plan.",
+                          height=150)
+    
+    generate_btn = st.button("Generate Strategy Report")
+
+with col2:
+    st.header("4. Output & Deliverables")
+    
+    if generate_btn:
+        if not api_key:
+            st.error("Missing API Key. Please provide one in the sidebar.")
+        elif not uploaded_data:
+            st.error("Please upload a CSV or Excel file to analyze.")
+        elif not problem:
+            st.error("Please define the business challenge.")
+        else:
+            with st.spinner("Orchestrating Strategy... (Analyzing Data + PDF Context)"):
+                # 1. Process Data
+                de = DataEngine()
+                df = de.clean_and_load(uploaded_data)
+                
+                if df is None:
+                    st.error("Critical Error: Could not read data file. Check formatting.")
+                else:
+                    # 2. Run Analytics
+                    stats, charts = de.analyze_and_plot(df)
+                    
+                    # 3. Run AI Orchestrator
+                    orch = StratOS_Orchestrator(st.session_state.kb, api_key)
+                    final_output = orch.run_loop(problem, stats)
+                    
+                    # 4. Generate PPTX
+                    re = ReportEngine()
+                    ppt_path = re.create_deck(final_output, charts)
+                    
+                    # 5. Display Results
+                    st.subheader("Executive Synthesis")
+                    st.markdown(final_output)
+                    
+                    with open(ppt_path, "rb") as f:
+                        st.download_button(
+                            label="📥 Download PowerPoint Strategy Deck",
+                            data=f,
+                            file_name="StratOS_Executive_Report.pptx",
+                            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                        )
+                    
+                    # Show data preview for transparency
+                    with st.expander("View Sanitized Data Preview"):
+                        st.dataframe(df.head())
+
+st.markdown("---")
+st.caption("StratOS v10 | Proprietary Augmented Consulting Framework")
