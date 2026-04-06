@@ -93,26 +93,37 @@ class DataEngine:
 
 class StratOS_Orchestrator:
     def __init__(self, kb, api_key):
-        # This configuration forces the use of the stable v1 API
         genai.configure(api_key=api_key)
-        # Use 'gemini-1.5-flash' without the 'models/' prefix or '-latest'
-        # The library handles the mapping automatically if the version is >=0.8.3
-        self.model = genai.GenerativeModel('gemini-1.5-flash') 
         self.kb = kb
+        # We define a list of models to try in order of speed/availability
+        self.model_stack = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro']
 
     def run_loop(self, problem, stats):
+        """The 'Self-Healing' Logic Loop"""
         context = self.kb.query(problem)
+        
         prompt = (
-            f"Context from Market Reports: {context}\n"
-            f"Client Data Trends: {stats}\n"
-            f"Problem: {problem}\n\n"
-            "Role: McKinsey Senior Partner. Provide a high-level strategy using the Pyramid Principle. "
-            "Lead with a 'Governing Thought' followed by 3 MECE strategic pillars."
+            f"SYSTEM: Act as a McKinsey Senior Partner. Use the Pyramid Principle.\n"
+            f"MARKET CONTEXT: {context}\n"
+            f"QUANTITATIVE DATA: {stats}\n"
+            f"CLIENT CHALLENGE: {problem}\n\n"
+            "DELIVERABLE: Provide a Governing Thought followed by 3 MECE strategic pillars. "
+            "Ensure the data trends are cited in your reasoning."
         )
-        try:
-            return self.model.generate_content(prompt).text
-        except Exception as e:
-            return f"AI Error: {str(e)}"
+
+        # Fallback Loop: Try each model until one works
+        for model_name in self.model_stack:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                return response.text
+            except Exception as e:
+                # Silently log the error and try the next model in the stack
+                print(f"Model {model_name} failed. Error: {str(e)}")
+                continue 
+        
+        # Final safety net if all models in the stack fail
+        return "CRITICAL ERROR: Strategy Engine unavailable. Please check API Key permissions or Quotas."
 
 class ReportEngine:
     def create_deck(self, summary, charts):
