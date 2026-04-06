@@ -92,12 +92,41 @@ class StratOS_Orchestrator:
     def __init__(self, kb, api_key):
         genai.configure(api_key=api_key)
         self.kb = kb
-        # Prioritized Model Stack for failover
+        # We are moving the 2.5 Flash to the top because your account is cleared for it!
         self.model_stack = [
+            'gemini-2.5-flash', 
+            'models/gemini-2.5-flash',
             'gemini-1.5-flash', 
-            'gemini-1.5-pro', 
-            'gemini-1.0-pro'
+            'gemini-1.5-pro'
         ]
+
+    def run_loop(self, problem, stats):
+        context = self.kb.query(problem)
+        
+        prompt = (
+            f"SYSTEM: Act as a McKinsey Senior Partner. Use the Pyramid Principle.\n"
+            f"MARKET CONTEXT: {context}\n"
+            f"QUANTITATIVE DATA: {stats}\n"
+            f"CLIENT CHALLENGE: {problem}\n\n"
+            "DELIVERABLE: Provide a Governing Thought followed by 3 MECE strategic pillars. "
+            "Ensure the data trends are cited in your reasoning."
+        )
+
+        for model_name in self.model_stack:
+            try:
+                model = genai.GenerativeModel(model_name)
+                # We add a tiny delay (1 second) to prevent hitting that 5 RPM limit too fast
+                import time
+                time.sleep(1) 
+                
+                response = model.generate_content(prompt)
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                print(f"⚠️ Failover: {model_name} failed. Error: {str(e)}")
+                continue 
+        
+        return "CRITICAL ERROR: Strategy Engine unavailable. Please check API Key permissions or Quotas."
 
     def run_loop(self, problem, stats):
         """The 'Self-Healing' Logic Loop with Version Failover"""
