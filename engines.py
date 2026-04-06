@@ -62,6 +62,29 @@ class DataEngine:
         except Exception as e:
             return None
 
+    # --- NEW FEATURE: AI REALISE (Data Readiness Audit) ---
+    def run_ai_realise_audit(self, df):
+        """Lancia Methodology: Audits data maturity for AI implementation"""
+        if df is None or df.empty:
+            return {"score": 0, "status": "NO DATA", "color": "red"}
+        
+        null_pct = df.isnull().sum().mean() / len(df) if len(df) > 0 else 1
+        completeness_score = (1 - null_pct) * 100
+        
+        # Check for numeric density (Lancia likes quantitative depth)
+        numeric_cols = len(df.select_dtypes(include=[np.number]).columns)
+        total_cols = len(df.columns)
+        density_score = (numeric_cols / total_cols) * 100 if total_cols > 0 else 0
+        
+        maturity_score = (completeness_score + density_score) / 2
+        
+        if maturity_score > 80:
+            return {"score": round(maturity_score, 1), "status": "AI READY", "color": "green"}
+        elif maturity_score > 50:
+            return {"score": round(maturity_score, 1), "status": "NEEDS STEWARDSHIP", "color": "orange"}
+        else:
+            return {"score": round(maturity_score, 1), "status": "UNSTRUCTURED / UNREADY", "color": "red"}
+
     def analyze_and_plot(self, df):
         numeric = df.select_dtypes(include=[np.number])
         if numeric.empty:
@@ -86,16 +109,13 @@ class DataEngine:
                 charts.append(path)
         return stats, charts
 
-    # --- NEW FEATURE: SENSITIVITY CURVE (The Math) ---
     def generate_sensitivity(self, target_gain):
-        """Calculates and plots a trade-off curve for margin improvement"""
         x = np.linspace(0, target_gain * 1.5, 20)
-        # Strategic Formula: Efficiency to Margin Mapping
         y = 15 + (x * 0.82) 
         
         plt.figure(figsize=(8, 4))
         plt.plot(x, y, color='#074050', linewidth=3, label="Profit Trajectory")
-        plt.axvline(target_gain, color='#d9534f', linestyle='--', label=f"Target: {target_goal}%")
+        plt.axvline(target_gain, color='#d9534f', linestyle='--', label=f"Target: {target_gain}%")
         plt.fill_between(x, y-2, y+2, alpha=0.1, color='#074050')
         plt.title("Strategic Sensitivity: Efficiency vs. Projected Margin", fontsize=10)
         plt.xlabel("OpEx Efficiency Gain (%)")
@@ -114,92 +134,9 @@ class StratOS_Orchestrator:
         self.kb = kb
         self.model_stack = ['gemini-2.0-flash', 'models/gemini-2.0-flash', 'gemini-1.5-flash']
 
-    # --- NEW FEATURE: MULTI-AGENT DEBATE (The Consensus Engine) ---
-    def run_debate(self, problem, stats, industry):
-        """Forces 3 personas to argue for a MECE strategy before synthesis"""
-        agents = {
-            "The Visionary (Growth)": "Prioritize market capture and high-velocity expansion.",
-            "The Conservator (Risk)": "Prioritize cash flow preservation and risk mitigation.",
-            "The Operationalist (Execution)": "Prioritize scalability and process optimization."
-        }
-        
-        transcript = ""
-        context = self.kb.query(problem)
-        
-        for name, persona in agents.items():
-            prompt = (f"ROLE: {name}. {persona}\n"
-                      f"INDUSTRY: {industry}\n"
-                      f"CLIENT DATA: {stats}\n"
-                      f"CONTEXT: {context}\n"
-                      f"TASK: Propose a 2-sentence solution for: {problem}")
-            response = self.call_gemini(prompt)
-            transcript += f"**{name}**: {response}\n\n"
-        
-        # Synthesis Pass
-        synthesis_prompt = (f"Synthesize this expert debate into a unified 3-pillar strategy for {industry}:\n\n"
-                            f"{transcript}\n\n"
-                            "Deliverable: Pyramid Principle format (Governing Thought + 3 Pillars).")
-        
-        final_mandate = self.call_gemini(synthesis_prompt)
-        return transcript, final_mandate
-
-    def run_loop(self, problem, stats, industry="Retail"):
-        """Main entry point for basic orchestration"""
-        benchmarks = self.get_benchmarks(industry)
-        context = self.kb.query(problem)
-        
-        prompt = (
-            f"SYSTEM: Act as a McKinsey Senior Partner.\n"
-            f"INDUSTRY BENCHMARKS: {benchmarks}\n"
-            f"MARKET CONTEXT: {context}\n"
-            f"QUANTITATIVE DATA: {stats}\n"
-            f"CHALLENGE: {problem}\n\n"
-            "Provide a Governing Thought and 3 MECE strategic pillars."
-        )
-        return self.call_gemini(prompt)
-
-    def run_red_team_audit(self, strategy):
-        audit_prompt = (
-            f"ACT AS: A cynical Private Equity Auditor.\n"
-            f"TASK: Find 3 failure points in this strategy: {strategy}\n"
-            "DELIVERABLE: Failure points + mitigation advice."
-        )
-        return self.call_gemini(audit_prompt)
-
-    def get_benchmarks(self, industry):
-        data = {
-            "Retail": "Avg Margin: 25%, Ad-to-Revenue Ratio: 8%, Shipping Cap: 12%",
-            "SaaS": "Avg Margin: 70%, LTV/CAC Ratio: 3x, Churn Cap: 5%",
-            "Manufacturing": "Avg Margin: 15%, Inventory Turnover: 6x, Logistics Cap: 20%"
-        }
-        return data.get(industry, "Standard Mid-Market KPIs")
-
-    def call_gemini(self, prompt):
-        for model_name in self.model_stack:
-            try:
-                model = genai.GenerativeModel(model_name)
-                time.sleep(1) 
-                response = model.generate_content(prompt)
-                if response and response.text:
-                    return response.text
-            except Exception as e:
-                continue
-        return "CRITICAL ERROR: Strategy Engine unavailable."
-
-class ReportEngine:
-    def create_deck(self, summary, charts):
-        prs = Presentation()
-        slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = "StratOS Executive Mandate"
-        
-        body_shape = slide.shapes.placeholders[1]
-        body_shape.text = summary[:1500] 
-        
-        for img in charts:
-            if os.path.exists(img):
-                slide = prs.slides.add_slide(prs.slide_layouts[6])
-                slide.shapes.add_picture(img, Inches(0.5), Inches(1), width=Inches(9))
-        
-        path = "StratOS_Strategy_Deck.pptx"
-        prs.save(path)
-        return path
+    # --- UPDATED: LANCIA PERSONA DATABASE ---
+    def get_persona_database(self):
+        return {
+            "Logistics": "Supply Chain Architect. Focus: Lead times, fuel volatility, and port congestion.",
+            "Utilities": "Regulatory Strategist. Focus: Grid stability, ESG compliance, and CAPEX.",
+            "Retail": "Consumer Behavioral Analyst. Focus: Inventory churn and
