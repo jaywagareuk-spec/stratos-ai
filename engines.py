@@ -90,15 +90,50 @@ class DataEngine:
 
 class StratOS_Orchestrator:
     def __init__(self, kb, api_key):
+        # We configure using the most stable versioning
         genai.configure(api_key=api_key)
         self.kb = kb
-        # We are moving the 2.5 Flash to the top because your account is cleared for it!
+        
+        # We MUST use 2.5 Flash as the primary because that is what your 
+        # dashboard is restricted to.
         self.model_stack = [
             'gemini-2.5-flash', 
             'models/gemini-2.5-flash',
-            'gemini-1.5-flash', 
-            'gemini-1.5-pro'
+            'gemini-1.5-flash' # Backup only
         ]
+
+    def run_loop(self, problem, stats):
+        """The 'Self-Healing' Logic Loop for 2.5 Flash"""
+        context = self.kb.query(problem)
+        
+        prompt = (
+            f"SYSTEM: Act as a McKinsey Senior Partner. Use the Pyramid Principle.\n"
+            f"MARKET CONTEXT: {context}\n"
+            f"QUANTITATIVE DATA: {stats}\n"
+            f"CLIENT CHALLENGE: {problem}\n\n"
+            "DELIVERABLE: Provide a Governing Thought followed by 3 MECE strategic pillars. "
+            "Ensure the data trends are cited in your reasoning."
+        )
+
+        for model_name in self.model_stack:
+            try:
+                # We initialize the model with the exact name from your dashboard
+                model = genai.GenerativeModel(model_name)
+                
+                # Small safety delay to respect your 5 RPM (Requests Per Minute) limit
+                import time
+                time.sleep(1) 
+                
+                response = model.generate_content(prompt)
+                
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                # This will print the real reason for failure in your terminal
+                print(f"⚠️ Failover: {model_name} failed. Error: {str(e)}")
+                continue 
+        
+        return "CRITICAL ERROR: Strategy Engine unavailable. Your API Key is active but restricted to Gemini 2.5 Flash. Please ensure you are not hitting the 5 RPM limit."
 
     def run_loop(self, problem, stats):
         context = self.kb.query(problem)
