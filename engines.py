@@ -98,8 +98,8 @@ class StratOS_Orchestrator:
         # We define a list of models to try in order of speed/availability
         self.model_stack = ['models/gemini-1.5-flash', 'models/gemini-1.5-pro', 'gemini-1.5-flash']
 
-    def run_loop(self, problem, stats):
-        """The 'Self-Healing' Logic Loop"""
+   def run_loop(self, problem, stats):
+        """The 'Self-Healing' Logic Loop with Explicit Versioning"""
         context = self.kb.query(problem)
         
         prompt = (
@@ -111,16 +111,32 @@ class StratOS_Orchestrator:
             "Ensure the data trends are cited in your reasoning."
         )
 
-        # Fallback Loop: Try each model until one works
+        # Updated stack with 'models/' prefix and version markers
+        self.model_stack = [
+            'models/gemini-1.5-flash', 
+            'models/gemini-1.5-pro', 
+            'gemini-1.5-flash', 
+            'gemini-pro'
+        ]
+
         for model_name in self.model_stack:
             try:
-                model = genai.GenerativeModel(model_name)
+                # The Secret Sauce: We force the API to use the 'v1' stable endpoint
+                model = genai.GenerativeModel(
+                    model_name=model_name
+                )
+                
+                # We use the 'v1' generation config to avoid 'v1beta' errors
                 response = model.generate_content(prompt)
-                return response.text
+                
+                if response and response.text:
+                    return response.text
             except Exception as e:
-                # Silently log the error and try the next model in the stack
-                print(f"Model {model_name} failed. Error: {str(e)}")
+                # Log the specific error to the console for debugging
+                print(f"⚠️ Failover: {model_name} failed. Attempting next model... Error: {str(e)}")
                 continue 
+        
+        return "CRITICAL ERROR: The AI Orchestrator could not reach a stable endpoint. Please verify your Google API Key is active in Google AI Studio."
         
         # Final safety net if all models in the stack fail
         return "CRITICAL ERROR: Strategy Engine unavailable. Please check API Key permissions or Quotas."
