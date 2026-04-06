@@ -8,4 +8,5 @@ python-pptx
 chromadb
 langchain
 langchain-community
+langchain-text-splitters
 pypdf
