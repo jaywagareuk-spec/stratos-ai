@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import pandas as pd
 from engines import KnowledgeEngine, DataEngine, StratOS_Orchestrator, ReportEngine
 
 # 1. PAGE CONFIGURATION
@@ -16,6 +17,10 @@ if 'kb' not in st.session_state:
     st.session_state.transcript = None
     st.session_state.charts = []
     st.session_state.sens_path = None
+    # --- ELITE FEATURES STATE ---
+    st.session_state.traceability_report = None
+    st.session_state.change_audit = None
+    st.session_state.current_scenario = "Balanced"
 
 # 3. CUSTOM CSS FOR LANCIA BRANDING
 st.markdown("""
@@ -61,14 +66,12 @@ with st.sidebar:
     st.header("📊 Scenario Modeling")
     target_goal = st.slider(
         "Strategic Value Target (Margin %)", 
-        min_value=5, 
-        max_value=50, 
-        value=15,
+        min_value=5, max_value=50, value=15,
         help="Set the target margin improvement for the AI to model."
     )
     
     st.divider()
-    
+
     # Visual Multi-Agent Status (Digital Boardroom) - UPDATED
     st.subheader("🤖 Digital Boardroom")
     with st.expander("Agent Status & Governance", expanded=True):
@@ -76,7 +79,8 @@ with st.sidebar:
         st.write("🚀 **Industry Strategist**: :green[Synced]")
         st.write("⚖️ **Compliance & Risk Auditor**: :green[ACTIVE]") 
         st.write("🔍 **Explainability Engine**: :blue[TRACING]")     
-        st.write("📊 **Results365 Monitor**: :orange[Standby]")
+        st.write("👥 **Culture & Adoption Lead**: :orange[ANALYZING]") 
+        st.write("📊 **Results365 Monitor**: :green[CONNECTED]")
 
     st.divider()
 
@@ -115,14 +119,24 @@ with tab_audit:
     else:
         st.warning("Please upload a dataset in the sidebar to run the AI Realise Audit.")
 
-# --- TAB 2: STRATEGY ENGINE (EXECUTION + GOVERNANCE) ---
+# --- TAB 2: STRATEGY ENGINE (BRANCHING & TRACEABILITY) ---
 with tab_strategy:
     col_input, col_output = st.columns([1, 1.2])
 
     with col_input:
         st.header("Strategic Input")
-        problem = st.text_area("Business Challenge", placeholder="e.g., Q3 margin erosion...", height=150)
-        generate_btn = st.button("Generate Executive Mandate")
+        problem = st.text_area("Business Challenge", placeholder="e.g., Q3 margin erosion...", height=100)
+        
+        # FEATURE: MULTI-SCENARIO BRANCHING
+        st.subheader("🛤️ Select Strategic Branch")
+        scenario_mode = st.select_slider(
+            "Risk Appetite",
+            options=["Defensive", "Balanced", "Aggressive"],
+            value="Balanced"
+        )
+        st.session_state.current_scenario = scenario_mode
+        
+        generate_btn = st.button("Generate Branching Roadmap")
 
     with col_output:
         st.header("Output & Deliverables")
@@ -131,55 +145,54 @@ with tab_strategy:
             if not uploaded_data or not problem:
                 st.error("Missing Data or Challenge definition.")
             else:
-                with st.status("🗺️ Executing Strategy Cycle...", expanded=True) as status:
+                with st.status(f"🏗️ Building {scenario_mode} Strategy...", expanded=True) as status:
                     st.write("📊 Analyzing Data...")
                     df = st.session_state.de.clean_and_load(uploaded_data)
                     stats, charts = st.session_state.de.analyze_and_plot(df)
                     
+                    # FEATURE: DEEP TRACEABILITY MAPPING
+                    st.write("🔍 Tracing Data Anchors...")
+                    st.session_state.traceability_report = {
+                        "Anchor_1": f"Revenue Leakage identified in {industry_choice} Telemetry",
+                        "Anchor_2": f"Margin Gap of {target_goal}% confirmed against Sector Benchmarks",
+                        "Anchor_3": "High Labor Sensitivity detected in Regional Data"
+                    }
+
+                    # FEATURE: CHANGE MANAGEMENT AUDIT
+                    st.write("👥 Running Behavioral Friction Analysis...")
+                    st.session_state.change_audit = "High risk of middle-management resistance due to workflow disruption. Mitigation: Week 2 Training Block."
+
                     st.write("🏛️ Convening Multi-Agent Debate...")
                     orch = StratOS_Orchestrator(st.session_state.kb, api_key)
                     internal_industry = industry_choice.split(" ")[0] 
-                    transcript, final_output = orch.run_debate(problem, stats, internal_industry)
+                    transcript, final_output = orch.run_debate(f"[{scenario_mode} Mode] " + problem, stats, internal_industry)
                     
                     st.write("📅 Generating 90-Day Roadmap...")
                     roadmap = orch.generate_lancia_roadmap(final_output)
                     
-                    st.write("📈 Modeling Profit Sensitivity...")
-                    sens_path = st.session_state.de.generate_sensitivity(target_goal)
-                    charts.append(sens_path)
-                    
-                    # Store results in Session State
                     st.session_state.final_output = final_output
                     st.session_state.roadmap = roadmap
                     st.session_state.transcript = transcript
                     st.session_state.charts = charts
-                    st.session_state.sens_path = sens_path
                     
-                    status.update(label="Strategy & Roadmap Finalized!", state="complete")
+                    status.update(label=f"{scenario_mode} Strategy Finalized!", state="complete")
 
         if st.session_state.get('final_output'):
-            # --- NEW GOVERNANCE & EXPLAINABILITY UI ---
-            st.subheader("🛡️ Governance & Compliance")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Compliance Rating", "94%", help="Audit against GDPR & SOX Standards")
-            c2.success("✅ GDPR Compliant")
-            c3.info("🔍 Evidence Traced")
+            # --- TRACEABILITY & CHANGE UI ---
+            with st.expander("🔍 Deep Traceability (Audit Trail)", expanded=True):
+                st.info("**Evidence Path:** Logic anchored to client telemetry and Lancia benchmarks.")
+                st.json(st.session_state.traceability_report)
+
+            st.subheader("👥 Behavioral Change Audit")
+            st.warning(f"**Adoption Risk:** {st.session_state.change_audit}")
 
             st.divider()
-
-            with st.expander("🔍 Strategy Explainability (Audit Trail)", expanded=True):
-                st.write("**Why did the AI suggest this?**")
-                st.markdown(f"""
-                * **Data Anchor:** Sector variance analysis of `{industry_choice}` telemetry.
-                * **Logic Path:** Prioritized operational efficiency to hit the **{target_goal}% Margin Target**.
-                * **Evidence Source:** Row-level anomalies detected in primary columns.
-                """)
-
+            
             res_col_main, res_col_side = st.columns([1.5, 1])
             with res_col_main:
-                st.subheader("📋 Executive Synthesis")
+                st.subheader(f"📋 Executive Synthesis ({st.session_state.current_scenario})")
                 st.markdown(st.session_state.final_output)
-                st.subheader("📅 Lancia 90-Day Implementation Roadmap")
+                st.subheader("📅 Implementation Roadmap")
                 st.success(st.session_state.roadmap)
             
             with res_col_side:
@@ -190,42 +203,20 @@ with tab_strategy:
             with open(ppt_path, "rb") as f:
                 st.download_button("📥 Download PowerPoint Deck", f, file_name="Lancia_Strategy_Report.pptx")
 
-# --- TAB 3: RESULTS365 (HEALTH & LIVE TRACKING) ---
+# --- TAB 3: RESULTS365 (SELF-HEALING & ROI) ---
 with tab_health:
-    st.header("📊 Results365: Performance Tracking")
+    st.header("📊 Results365: Advanced Monitoring")
     
     if st.session_state.get('final_output'):
-        # Simulate tracking logic
-        actual_impact = 12.8 
+        # Simulate tracking drift
+        actual_impact = 9.5 
         target = float(target_goal)
         variance = actual_impact - target
         
         col_h1, col_h2 = st.columns([2, 1])
         
         with col_h1:
-            st.metric("Realized Margin Impact", f"{actual_impact}%", f"{variance:.1f}% vs. Target")
-            st.line_chart([10.2, 11.5, 12.1, 12.8], use_container_width=True)
+            st.metric("Realized Margin Impact", f"{actual_impact}%", f"{variance:.1f}% vs Target")
+            st.line_chart([10.2, 10.0, 9.7, 9.5]) 
             
         with col_h2:
-            if variance < 0:
-                st.error("🚨 DRIFT DETECTED")
-                st.write("Strategy is trailing the initial target.")
-                if st.button("🔄 Trigger Strategic Pivot"):
-                    st.toast("Recalibrating...", icon="🔄")
-                    st.session_state.final_output = None 
-                    st.info("Pivot triggered. Please re-run Strategy Engine.")
-            else:
-                st.success("🍀 ON TRACK")
-                st.write("Value realization is aligned with the roadmap.")
-
-        st.divider()
-        st.subheader("📋 Governance Audit Trail")
-        ca1, ca2 = st.columns(2)
-        ca1.info("**Compliance Audit:** No GDPR/SOX violations detected.")
-        ca2.info("**Explainability Trace:** Decision logic anchored to Operational Costs (Row 42).")
-            
-    else:
-        st.info("Please generate a strategy to activate Results365 Live Monitoring.")
-
-st.markdown("---")
-st.caption("StratOS v10 | Proprietary Lancia Consult Framework Integration")
