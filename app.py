@@ -6,14 +6,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import google.generativeai as genai
 import chromadb
-import time
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pptx import Presentation
-from pptx.util import Inches
 
 # =========================================================
-# PART 1: THE ENGINES (Strategic Logic)
+# THE ENGINES (Core Lancia Logic)
 # =========================================================
 
 class KnowledgeEngine:
@@ -37,7 +35,7 @@ class KnowledgeEngine:
             os.remove("temp.pdf")
             return len(chunks)
         except Exception as e:
-            return f"Error indexing PDF: {str(e)}"
+            return f"Error: {str(e)}"
 
     def query(self, text):
         try:
@@ -48,153 +46,83 @@ class KnowledgeEngine:
 
 class DataEngine:
     def clean_and_load(self, file_object):
+        """Original Data Ingestion Logic."""
         try:
-            if file_object.name.endswith('.csv'):
-                df = pd.read_csv(file_object)
-            else:
-                df = pd.read_excel(file_object)
-            
-            df.columns = (df.columns.astype(str)
-                          .str.replace('_USD', '', case=False)
-                          .str.replace('_Units', '', case=False)
-                          .str.replace(' ', '_')
-                          .str.strip())
-            
-            df = df.dropna(how='all', axis=0).dropna(how='all', axis=1)
-            
-            for col in df.columns:
-                if df[col].dtype == 'object':
-                    try:
-                        df[col] = df[col].replace(r'[\$,%]', '', regex=True).astype(float)
-                    except:
-                        pass 
-            return df
+            df = pd.read_csv(file_object) if file_object.name.endswith('.csv') else pd.read_excel(file_object)
+            df.columns = df.columns.astype(str).str.strip().str.replace(' ', '_')
+            return df.dropna(how='all', axis=0).dropna(how='all', axis=1)
         except:
             return None
 
     def run_ai_realise_audit(self, df):
-        """Lancia AI Realise: Data Maturity Diagnostic."""
-        if df is None or df.empty:
-            return {"score": 0, "status": "NO DATA"}
-        
-        completeness = (1 - df.isnull().mean().mean()) * 100
-        numeric_density = (len(df.select_dtypes(include=[np.number]).columns) / len(df.columns)) * 100
-        maturity_score = round((completeness + numeric_density) / 2, 1)
-        
-        status = "STRATEGICALLY READY" if maturity_score > 85 else "DATA REMEDIATION ADVISED" if maturity_score > 60 else "CRITICAL DATA GAPS"
-        return {"score": maturity_score, "status": status}
+        """Standard Lancia AI Realise Framework."""
+        if df is None or df.empty: return {"score": 0, "status": "No Data"}
+        score = round(((1 - df.isnull().mean().mean()) * 50) + (min(len(df.columns)/10, 1) * 50), 1)
+        status = "MATURE" if score > 80 else "DEVELOPING" if score > 50 else "CRITICAL"
+        return {"score": score, "status": status}
 
-    def analyze_and_plot(self, df):
+    def analyze_trends(self, df):
         numeric = df.select_dtypes(include=[np.number])
-        if numeric.empty: return {"Status": "No numeric trends found."}, []
         stats, charts = {}, []
-        sns.set_theme(style="whitegrid")
-        for col in numeric.columns[:3]:
-            vals = numeric[col].dropna()
-            if len(vals) > 1:
-                trend = np.polyfit(range(len(vals)), vals, 1)[0]
-                stats[col] = {"mean": round(vals.mean(), 2), "trend": round(trend, 4)}
-                plt.figure(figsize=(6, 4))
-                sns.lineplot(data=vals, color='#074050', linewidth=2, marker='o')
-                plt.title(f"Analysis: {col}")
-                path = f"{col}_viz.png"
-                plt.savefig(path, bbox_inches='tight')
-                plt.close()
-                charts.append(path)
+        for col in numeric.columns[:2]:
+            plt.figure(figsize=(6, 3))
+            sns.lineplot(data=df[col], color='#074050')
+            plt.title(f"Trend Analysis: {col}")
+            path = f"{col}_chart.png"
+            plt.savefig(path, bbox_inches='tight')
+            plt.close()
+            charts.append(path)
+            stats[col] = df[col].mean()
         return stats, charts
 
 class StratOS_Orchestrator:
-    def __init__(self, kb, api_key):
+    def __init__(self, api_key):
         genai.configure(api_key=api_key)
-        self.kb = kb
-        self.model_stack = ['gemini-1.5-flash', 'gemini-1.5-pro']
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
 
-    def run_debate(self, problem, stats, industry):
-        agents = {"Growth": "Scale.", "Risk": "Margins.", "Ops": "Execution."}
-        transcript = ""
-        context = self.kb.query(problem)
-        for name, persona in agents.items():
-            prompt = f"Role: {name}. {persona}\nIndustry: {industry}\nData: {stats}\nTask: Solution for {problem}"
-            response = self.call_gemini(prompt)
-            transcript += f"### {name}\n{response}\n\n"
-        synth = self.call_gemini(f"Synthesize this into a strategy:\n{transcript}")
-        return transcript, synth
-
-    def call_gemini(self, prompt):
-        for model_name in self.model_stack:
-            try:
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
-                if response.text: return response.text
-            except: continue
-        return "ERROR: Engine Offline."
+    def generate_strategy(self, prompt, context=""):
+        response = self.model.generate_content(f"Context: {context}\n\nTask: {prompt}")
+        return response.text if response else "Engine Error."
 
 class ReportEngine:
-    def run_results365_check(self, strategy_output, orch):
-        """Lancia Results365: Delivery Health Audit."""
-        prompt = f"Results365 Performance Audit: Rate delivery confidence (0-100%) and 3 risks for: {strategy_output}"
-        return orch.call_gemini(prompt)
-
-    def create_deck(self, summary, charts):
-        prs = Presentation()
-        slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = "Lancia Executive Mandate"
-        slide.shapes.placeholders[1].text = summary[:1500]
-        path = "Lancia_Report.pptx"
-        prs.save(path)
-        return path
+    def run_results365_check(self, strategy, orch):
+        """Standard Results365 Performance Diagnostic."""
+        return orch.generate_strategy(f"Audit this strategy using the Results365 framework: {strategy}")
 
 # =========================================================
-# PART 2: THE UI (Lancia Branding & Results365 View)
+# THE UI (Main App)
 # =========================================================
 
-st.set_page_config(page_title="Lancia StratOS", layout="wide")
+st.set_page_config(page_title="Lancia StratOS AI", layout="wide")
 
 if "kb" not in st.session_state: st.session_state.kb = KnowledgeEngine()
 if "de" not in st.session_state: st.session_state.de = DataEngine()
-if "re" not in st.session_state: st.session_state.re = ReportEngine()
 
 with st.sidebar:
-    st.image("https://lancia-consult.com/wp-content/uploads/2021/05/Lancia-Consult-Logo-Standard-RGB.png", width=200)
+    st.image("https://lancia-consult.com/wp-content/uploads/2021/05/Lancia-Consult-Logo-Standard-RGB.png", width=180)
     api_key = st.text_input("Gemini API Key", type="password")
-    industry = st.selectbox("Industry", ["Retail", "Manufacturing", "Logistics"])
-    data_file = st.file_uploader("Upload Client CSV", type=['csv'])
+    uploaded_file = st.file_uploader("Upload Client CSV", type=['csv'])
 
 if api_key:
-    orch = StratOS_Orchestrator(st.session_state.kb, api_key)
+    orch = StratOS_Orchestrator(api_key)
+    re = ReportEngine()
     st.title("Lancia StratOS AI")
-    
-    if data_file:
-        df = st.session_state.de.clean_and_load(data_file)
+
+    if uploaded_file:
+        df = st.session_state.de.clean_and_load(uploaded_file)
         if df is not None:
-            # 1. AI Realise Audit View
-            st.subheader("📊 Lancia AI Realise Audit")
             audit = st.session_state.de.run_ai_realise_audit(df)
-            col1, col2 = st.columns(2)
-            col1.metric("Data Maturity", f"{audit['score']}%")
-            col2.info(f"Status: {audit['status']}")
+            st.metric("AI Realise Maturity", f"{audit['score']}%", audit['status'])
             
-            if st.button("RUN FULL STRATEGY & RESULTS365"):
-                with st.spinner("Processing..."):
-                    stats, charts = st.session_state.de.analyze_and_plot(df)
-                    _, synthesis = orch.run_debate("Analyze margins", stats, industry)
-                    
-                    # 2. Results365 View
-                    st.divider()
-                    st.subheader("✅ Lancia Results365 Performance Health")
-                    health = st.session_state.re.run_results365_check(synthesis, orch)
-                    st.success(health)
-                    
-                    # 3. Content View
-                    st.divider()
-                    st.subheader("Strategic Synthesis")
-                    st.markdown(synthesis)
-                    for c in charts: st.image(c)
-                    
-                    path = st.session_state.re.create_deck(synthesis, charts)
-                    with open(path, "rb") as f:
-                        st.download_button("Download Lancia PPT", f, file_name="Lancia_Strategy.pptx")
-    else:
-        st.info("👈 Upload a file in the sidebar to start the Audit.")
+            if st.button("Generate Lancia Strategy"):
+                stats, charts = st.session_state.de.analyze_trends(df)
+                strat = orch.generate_strategy(f"Analyze these stats: {stats}")
+                
+                st.subheader("Results365 Performance Health")
+                st.info(re.run_results365_check(strat, orch))
+                
+                st.subheader("Core Strategy")
+                st.markdown(strat)
+                for c in charts: st.image(c)
 else:
-    st.warning("Please enter your API Key.")
+    st.warning("Please provide an API Key.")
