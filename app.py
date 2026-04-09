@@ -2,106 +2,108 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import google.generativeai as genai
-import os
 
 # =========================================================
-# THE ORIGINAL STRATOS 11 ENGINE (Matched Logic)
+# THE STRATOS v11 ENGINE
 # =========================================================
-
-class StratOS11_Original:
+class StratOS11_Engine:
     def __init__(self, api_key):
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-1.5-flash')
 
-    def run_multi_agent_debate(self, stats_summary, industry):
-        """Original 3-Agent Logic: Growth, Risk, and Ops Perspectives."""
+    def run_debate(self, stats, industry):
         agents = {
-            "Growth Agent": "Focus on visionary scaling and revenue expansion.",
-            "Risk Agent": "Focus on margin protection and cost leakage.",
-            "Ops Agent": "Focus on lean execution and supply chain stability."
+            "Growth Agent": "Focus on expansion and top-line revenue.",
+            "Risk Agent": "Focus on margin protection and failure points.",
+            "Ops Agent": "Focus on lean execution and efficiency."
         }
-        debate_log = {}
+        debate = {}
         for name, persona in agents.items():
-            prompt = f"Role: {name}. Persona: {persona}. Industry: {industry}. Data: {stats_summary}. Give 2 tactical moves."
-            debate_log[name] = self.model.generate_content(prompt).text
-        return debate_log
+            prompt = f"Role: {name}. {persona} Industry: {industry}. Data: {stats}. 2 tactical moves."
+            debate[name] = self.model.generate_content(prompt).text
+        return debate
 
-    def synthesize_mandate(self, debate_log):
-        """Synthesizes the debate into the Executive Mandate."""
-        prompt = f"Synthesize this 3-agent debate into a Lancia Strategy Mandate using the Pyramid Principle: {debate_log}"
+    def synthesize(self, debate):
+        prompt = f"Synthesize this 3-agent debate into a Lancia Strategy Mandate: {debate}"
         return self.model.generate_content(prompt).text
 
     def results365_audit(self, strategy):
-        """Lancia Results365: Execution Confidence Check."""
-        prompt = f"Audit this via Lancia Results365. Rate delivery confidence (0-100%) and identify 3 execution risks: {strategy}"
-        return self.model.generate_content(prompt).text
-
-    def red_team_stress_test(self, strategy):
-        """Red Team Auditor: Finding Failure Points."""
-        prompt = f"Act as a Red Team Auditor. Identify 3 critical failure points and mitigations for: {strategy}"
+        prompt = f"Results365 Audit: Rate delivery confidence (0-100%) and 3 execution risks: {strategy}"
         return self.model.generate_content(prompt).text
 
 # =========================================================
-# THE ORIGINAL INTERFACE (Stable Build)
+# THE INTERFACE (Matching your 'Important' Screenshot)
 # =========================================================
+st.set_page_config(page_title="Lancia StratOS v11", layout="wide")
 
-st.set_page_config(page_title="Lancia StratOS 11", layout="wide")
-
+# Sidebar - Branding & Setup
 with st.sidebar:
     st.image("https://lancia-consult.com/wp-content/uploads/2021/05/Lancia-Consult-Logo-Standard-RGB.png", width=200)
+    st.header("Scenario Modeling")
+    target_margin = st.slider("Target Margin Improvement (%)", 0, 50, 15)
+    
+    st.header("Knowledge Ingestion")
+    st.file_uploader("Upload Market Reports (PDF)", type=['pdf'])
+    
+    st.header("Client Data")
+    data_file = st.file_uploader("Upload Telemetry (CSV/XLSX)", type=['csv', 'xlsx'])
+    
     st.divider()
     api_key = st.text_input("Gemini API Key", type="password")
-    industry = st.selectbox("Industry Focus", ["Retail", "Manufacturing", "Logistics", "Energy"])
-    data_file = st.file_uploader("Upload Client CSV", type=['csv'])
 
 if api_key:
-    orch = StratOS11_Original(api_key)
-    st.title("Lancia StratOS 11")
-    st.caption("Proprietary Multi-Agent Strategic Intelligence")
+    engine = StratOS11_Engine(api_key)
+    st.title("🏛️ StratOS v11: Executive Strategy Suite")
+    st.caption("Lancia Consulting Methodology: AI Realise (Audit) & Results365 (Health)")
+
+    # THE TABBED INTERFACE FROM YOUR SCREENSHOT
+    tab_audit, tab_engine, tab_health = st.tabs([
+        "🛡️ AI Realise (Data Audit)", 
+        "🚀 Strategy Engine", 
+        "📊 Results365 (Project Health)"
+    ])
 
     if data_file:
-        # The 'USD' Fix - restored original stable cleaning
         df = pd.read_csv(data_file)
-        df.columns = df.columns.astype(str).str.replace('_USD', '', case=False).str.replace(' ', '_')
         
-        # 📊 AI Realise Audit (The version that worked yesterday)
-        st.subheader("📊 Lancia AI Realise Audit")
-        maturity_score = round((1 - df.isnull().mean().mean()) * 100, 1)
-        st.metric("Data Maturity", f"{maturity_score}%", "READY" if maturity_score > 85 else "REMEDIATE")
+        with tab_audit:
+            st.subheader("Results: AI Realise Data Maturity")
+            score = round((1 - df.isnull().mean().mean()) * 100, 1)
+            st.metric("Data Maturity", f"{score}%")
+            st.write("---")
+            st.dataframe(df.head(10))
 
-        if st.button("RUN STRATOS 11 ORCHESTRATION"):
-            with st.spinner("Engaging Multi-Agent Debate..."):
-                stats = df.describe().to_string()
-                
-                # 1. Run the Debate
-                debate = orch.run_multi_agent_debate(stats, industry)
-                
-                # 2. Synthesize & Audit
-                strategy = orch.synthesize_mandate(str(debate))
-                results365 = orch.results365_audit(strategy)
-                red_team = orch.red_team_stress_test(strategy)
+        with tab_engine:
+            if st.button("RUN STRATEGY ENGINE"):
+                with st.spinner("Engaging Multi-Agent Debate..."):
+                    stats = df.describe().to_string()
+                    debate = engine.run_debate(stats, "Retail")
+                    strategy = engine.synthesize(str(debate))
+                    
+                    # Store in session state for the Health tab
+                    st.session_state['current_strat'] = strategy
+                    st.session_state['current_debate'] = debate
 
-                # --- UI DISPLAY: THE ORIGINAL 3-COLUMN DEBATE ---
-                st.divider()
-                st.subheader("🕵️ The Strategic Debate")
+            if 'current_strat' in st.session_state:
+                st.subheader("3-Agent Strategic Debate")
                 c1, c2, c3 = st.columns(3)
-                c1.info(f"**Growth**\n\n{debate['Growth Agent']}")
-                c2.warning(f"**Risk**\n\n{debate['Risk Agent']}")
-                c3.success(f"**Ops**\n\n{debate['Ops Agent']}")
-
-                # --- UI DISPLAY: THE FINAL MANDATE & AUDITS ---
+                c1.info(f"**Growth**\n\n{st.session_state['current_debate']['Growth Agent']}")
+                c2.warning(f"**Risk**\n\n{st.session_state['current_debate']['Risk Agent']}")
+                c3.success(f"**Ops**\n\n{st.session_state['current_debate']['Ops Agent']}")
+                
                 st.divider()
-                tab1, tab2, tab3 = st.tabs(["Strategy Mandate", "✅ Results365 Health", "🛡️ Red Team Audit"])
-                
-                with tab1:
-                    st.markdown(strategy)
-                    st.line_chart(df.select_dtypes(include=[np.number]).iloc[:, 0])
-                
-                with tab2:
-                    st.info(results365)
-                
-                with tab3:
-                    st.error("RED TEAM CRITICAL FINDINGS")
-                    st.markdown(red_team)
+                st.subheader("Executive Mandate")
+                st.markdown(st.session_state['current_strat'])
+
+        with tab_health:
+            st.subheader("Results365: Transformation Health-Check")
+            if 'current_strat' in st.session_state:
+                health = engine.results365_audit(st.session_state['current_strat'])
+                st.success(health)
+            else:
+                st.info("Please generate a strategy in the 'Strategy Engine' tab to view health diagnostics.")
+    
+    st.divider()
+    st.caption("StratOS v11 | Proprietary Lancia Consult Framework Integration")
 else:
     st.warning("Please enter your API Key in the sidebar.")
