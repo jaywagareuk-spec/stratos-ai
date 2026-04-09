@@ -1,7 +1,16 @@
-import streamlit as st
 import os
 import pandas as pd
-from engines import KnowledgeEngine, DataEngine, StratOS_Orchestrator, ReportEngine
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import google.generativeai as genai
+import chromadb
+import time
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pptx import Presentation
+from pptx.util import Inches
+import streamlit as st  # <--- Make sure this is there too!
 
 # 1. PAGE CONFIGURATION
 st.set_page_config(page_title="StratOS v11 | Lancia Executive Suite", layout="wide", page_icon="🏛️")
