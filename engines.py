@@ -8,6 +8,8 @@ import chromadb
 import time
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pptx import Presentation
+from pptx.util import Inches
 
 class KnowledgeEngine:
     def __init__(self):
@@ -41,14 +43,13 @@ class KnowledgeEngine:
 
 class DataEngine:
     def clean_and_load(self, file_object):
-        """Standardizes headers (USD fix) and cleans numeric strings."""
         try:
             if file_object.name.endswith('.csv'):
                 df = pd.read_csv(file_object)
             else:
                 df = pd.read_excel(file_object)
             
-            # THE FIX: Standardize headers to handle 'Revenue_USD' etc.
+            # THE FIX: Standardize headers (removes _USD, _Units, and spaces)
             df.columns = (df.columns.astype(str)
                           .str.replace('_USD', '', case=False)
                           .str.replace('_Units', '', case=False)
@@ -84,17 +85,37 @@ class DataEngine:
         numeric = df.select_dtypes(include=[np.number])
         if numeric.empty: return {"Status": "No numeric trends found."}, []
         stats, charts = {}, []
+        sns.set_theme(style="whitegrid")
+        
         for col in numeric.columns[:3]:
             vals = numeric[col].dropna()
             if len(vals) > 1:
-                stats[col] = {"mean": round(vals.mean(), 2), "trend": round(np.polyfit(range(len(vals)), vals, 1)[0], 4)}
+                trend = np.polyfit(range(len(vals)), vals, 1)[0]
+                stats[col] = {"mean": round(vals.mean(), 2), "trend": round(trend, 4)}
+                
                 plt.figure(figsize=(6, 4))
-                sns.lineplot(data=vals, color='#074050')
+                sns.lineplot(data=vals, color='#074050', linewidth=2, marker='o')
+                plt.title(f"Client Data Analysis: {col}")
                 path = f"{col}_viz.png"
-                plt.savefig(path)
+                plt.savefig(path, bbox_inches='tight')
                 plt.close()
                 charts.append(path)
         return stats, charts
+
+    def generate_sensitivity(self, target_gain):
+        x = np.linspace(0, target_gain * 1.5, 20)
+        y = 15 + (x * 0.82) 
+        plt.figure(figsize=(8, 4))
+        plt.plot(x, y, color='#074050', linewidth=3, label="Profit Trajectory")
+        plt.fill_between(x, y-2, y+2, alpha=0.1, color='#074050')
+        plt.title("Strategic Sensitivity: Efficiency vs. Projected Margin", fontsize=10)
+        plt.xlabel("OpEx Efficiency Gain (%)")
+        plt.ylabel("Projected Net Margin (%)")
+        plt.grid(alpha=0.3)
+        path = "sensitivity_plot.png"
+        plt.savefig(path, bbox_inches='tight')
+        plt.close()
+        return path
 
 class StratOS_Orchestrator:
     def __init__(self, kb, api_key):
@@ -103,38 +124,4 @@ class StratOS_Orchestrator:
         self.model_stack = ['gemini-1.5-flash', 'gemini-1.5-pro']
 
     def run_debate(self, problem, stats, industry):
-        transcript = ""
-        context = self.kb.query(problem)
-        
-        # Simulating a 3-agent debate
-        agents = ["Growth Visionary", "Risk Conservator", "Operationalist"]
-        for agent in agents:
-            prompt = f"Role: {agent} in {industry}. Analyze these stats: {stats}. Context: {context}. Target: {problem}"
-            response = self.call_gemini(prompt)
-            transcript += f"**{agent}**: {response}\n\n"
-        
-        synthesis_prompt = f"Synthesize this debate into a 3-pillar strategy:\n{transcript}"
-        return transcript, self.call_gemini(synthesis_prompt)
-
-    def call_gemini(self, prompt):
-        for model_name in self.model_stack:
-            try:
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
-                if response and response.text:
-                    return response.text
-            except:
-                continue
-        return "CRITICAL ERROR: Strategy Engine unavailable."
-
-class ReportEngine:
-    def create_deck(self, summary, charts):
-        from pptx import Presentation
-        from pptx.util import Inches
-        prs = Presentation()
-        slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = "Executive Strategy"
-        slide.shapes.placeholders[1].text = summary[:1000]
-        path = "Lancia_Report.pptx"
-        prs.save(path)
-        return path
+        agents
