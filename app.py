@@ -90,7 +90,7 @@ class DataEngine:
                 sns.lineplot(data=vals, color='#074050', linewidth=2, marker='o')
                 plt.title(f"Client Data Analysis: {col}")
                 path = f"{col}_viz.png"
-                plt.savefig(path, bbox_inches='tight') # Fixed the Syntax Here
+                plt.savefig(path, bbox_inches='tight')
                 plt.close()
                 charts.append(path)
         return stats, charts
@@ -113,37 +113,4 @@ class StratOS_Orchestrator:
         self.model_stack = ['gemini-1.5-flash', 'gemini-1.5-pro']
 
     def run_debate(self, problem, stats, industry):
-        agents = {"Growth": "Visionary scale.", "Risk": "Margin protection.", "Ops": "Execution."}
-        transcript = ""
-        context = self.kb.query(problem)
-        for name, persona in agents.items():
-            prompt = f"Role: {name}. {persona}\nIndustry: {industry}\nData: {stats}\nContext: {context}\nTask: 2-sentence solution for: {problem}"
-            response = self.call_gemini(prompt)
-            transcript += f"### {name}\n{response}\n\n"
-        synthesis = f"Synthesize into a 3-pillar strategy for {industry} using the Pyramid Principle:\n{transcript}"
-        return transcript, self.call_gemini(synthesis)
-
-    def generate_lancia_roadmap(self, strategy_text):
-        return self.call_gemini(f"Create a 90-day roadmap for: {strategy_text}")
-
-    def run_red_team_audit(self, strategy):
-        return self.call_gemini(f"Red Team Auditor: Find 3 structural failure points and mitigations for: {strategy}")
-
-    def call_gemini(self, prompt):
-        for model_name in self.model_stack:
-            try:
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
-                if response and response.text: return response.text
-            except: continue
-        return "CRITICAL ERROR: Strategy Engine unavailable."
-
-class ReportEngine:
-    def run_results365_check(self, strategy_output, orch):
-        return orch.call_gemini(f"Results365 Audit: Rate delivery confidence (0-100%) and 3 risks for: {strategy_output}")
-
-    def create_deck(self, summary, charts, roadmap=""):
-        prs = Presentation()
-        slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = "Lancia Executive Strategy Mandate"
-        slide.
+        agents
