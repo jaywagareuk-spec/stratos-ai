@@ -43,13 +43,14 @@ class KnowledgeEngine:
 
 class DataEngine:
     def clean_and_load(self, file_object):
+        """Fixes the 'USD' mismatch by renaming columns automatically."""
         try:
             if file_object.name.endswith('.csv'):
                 df = pd.read_csv(file_object)
             else:
                 df = pd.read_excel(file_object)
             
-            # THE FIX: Standardize headers (removes _USD, _Units, and spaces)
+            # Standardize headers (removes _USD, _Units, and spaces)
             df.columns = (df.columns.astype(str)
                           .str.replace('_USD', '', case=False)
                           .str.replace('_Units', '', case=False)
@@ -78,7 +79,6 @@ class DataEngine:
         
         status = "STRATEGICALLY READY" if maturity_score > 85 else "DATA REMEDIATION ADVISED" if maturity_score > 60 else "CRITICAL DATA GAPS"
         color = "green" if maturity_score > 85 else "orange" if maturity_score > 60 else "red"
-        
         return {"score": maturity_score, "status": status, "color": color}
 
     def analyze_and_plot(self, df):
@@ -124,4 +124,21 @@ class StratOS_Orchestrator:
         self.model_stack = ['gemini-1.5-flash', 'gemini-1.5-pro']
 
     def run_debate(self, problem, stats, industry):
-        agents
+        agents = {
+            "Growth Visionary": "Focus on market capture and scale.",
+            "Risk Conservator": "Focus on margin protection and cash flow.",
+            "Operationalist": "Focus on execution and unit-cost optimization."
+        }
+        transcript = ""
+        context = self.kb.query(problem)
+        for name, persona in agents.items():
+            prompt = f"ROLE: {name}. {persona}\nINDUSTRY: {industry}\nDATA: {stats}\nCONTEXT: {context}\nTASK: 2-sentence solution for: {problem}"
+            response = self.call_gemini(prompt)
+            transcript += f"### {name}\n{response}\n\n"
+        
+        synthesis = f"Synthesize this debate into a unified 3-pillar strategy for {industry} using the Pyramid Principle:\n{transcript}"
+        return transcript, self.call_gemini(synthesis)
+
+    def generate_lancia_roadmap(self, strategy_text):
+        prompt = f"Create a 90-Day Roadmap table (Month 1-3) with 2 KPIs per month based on: {strategy_text}"
+        return self.call_gemini
