@@ -13,7 +13,7 @@ from pptx import Presentation
 from pptx.util import Inches
 
 # =========================================================
-# THE ENGINES (Strategic Logic & Data Processing)
+# PART 1: THE ENGINES (Strategic Logic)
 # =========================================================
 
 class KnowledgeEngine:
@@ -48,7 +48,6 @@ class KnowledgeEngine:
 
 class DataEngine:
     def clean_and_load(self, file_object):
-        """Fixes the 'USD' mismatch by renaming columns automatically."""
         try:
             if file_object.name.endswith('.csv'):
                 df = pd.read_csv(file_object)
@@ -74,11 +73,16 @@ class DataEngine:
             return None
 
     def run_ai_realise_audit(self, df):
+        """Lancia AI Realise: Data Maturity Diagnostic."""
         if df is None or df.empty:
-            return {"score": 0, "status": "NO DATA", "color": "red"}
-        score = round(((1 - df.isnull().mean().mean()) * 100 + (len(df.select_dtypes(include=[np.number]).columns) / len(df.columns)) * 100) / 2, 1)
-        status = "STRATEGICALLY READY" if score > 85 else "DATA REMEDIATION ADVISED" if score > 60 else "CRITICAL DATA GAPS"
-        return {"score": score, "status": status}
+            return {"score": 0, "status": "NO DATA"}
+        
+        completeness = (1 - df.isnull().mean().mean()) * 100
+        numeric_density = (len(df.select_dtypes(include=[np.number]).columns) / len(df.columns)) * 100
+        maturity_score = round((completeness + numeric_density) / 2, 1)
+        
+        status = "STRATEGICALLY READY" if maturity_score > 85 else "DATA REMEDIATION ADVISED" if maturity_score > 60 else "CRITICAL DATA GAPS"
+        return {"score": maturity_score, "status": status}
 
     def analyze_and_plot(self, df):
         numeric = df.select_dtypes(include=[np.number])
@@ -92,7 +96,7 @@ class DataEngine:
                 stats[col] = {"mean": round(vals.mean(), 2), "trend": round(trend, 4)}
                 plt.figure(figsize=(6, 4))
                 sns.lineplot(data=vals, color='#074050', linewidth=2, marker='o')
-                plt.title(f"Client Data Analysis: {col}")
+                plt.title(f"Analysis: {col}")
                 path = f"{col}_viz.png"
                 plt.savefig(path, bbox_inches='tight')
                 plt.close()
@@ -106,11 +110,11 @@ class StratOS_Orchestrator:
         self.model_stack = ['gemini-1.5-flash', 'gemini-1.5-pro']
 
     def run_debate(self, problem, stats, industry):
-        agents = {"Visionary": "Scale focus.", "Risk": "Margin focus.", "Ops": "Lean focus."}
+        agents = {"Growth": "Scale.", "Risk": "Margins.", "Ops": "Execution."}
         transcript = ""
         context = self.kb.query(problem)
         for name, persona in agents.items():
-            prompt = f"Role: {name}. {persona}\nIndustry: {industry}\nData: {stats}\nTask: 2-sentence solution for {problem}"
+            prompt = f"Role: {name}. {persona}\nIndustry: {industry}\nData: {stats}\nTask: Solution for {problem}"
             response = self.call_gemini(prompt)
             transcript += f"### {name}\n{response}\n\n"
         synth = self.call_gemini(f"Synthesize this into a strategy:\n{transcript}")
@@ -123,9 +127,14 @@ class StratOS_Orchestrator:
                 response = model.generate_content(prompt)
                 if response.text: return response.text
             except: continue
-        return "ERROR: Strategy Engine Offline."
+        return "ERROR: Engine Offline."
 
 class ReportEngine:
+    def run_results365_check(self, strategy_output, orch):
+        """Lancia Results365: Delivery Health Audit."""
+        prompt = f"Results365 Performance Audit: Rate delivery confidence (0-100%) and 3 risks for: {strategy_output}"
+        return orch.call_gemini(prompt)
+
     def create_deck(self, summary, charts):
         prs = Presentation()
         slide = prs.slides.add_slide(prs.slide_layouts[1])
@@ -136,7 +145,7 @@ class ReportEngine:
         return path
 
 # =========================================================
-# THE UI (Streamlit Frontend)
+# PART 2: THE UI (Lancia Branding & Results365 View)
 # =========================================================
 
 st.set_page_config(page_title="Lancia StratOS", layout="wide")
@@ -149,24 +158,43 @@ with st.sidebar:
     st.image("https://lancia-consult.com/wp-content/uploads/2021/05/Lancia-Consult-Logo-Standard-RGB.png", width=200)
     api_key = st.text_input("Gemini API Key", type="password")
     industry = st.selectbox("Industry", ["Retail", "Manufacturing", "Logistics"])
-    data_file = st.file_uploader("Upload CSV", type=['csv'])
+    data_file = st.file_uploader("Upload Client CSV", type=['csv'])
 
 if api_key:
     orch = StratOS_Orchestrator(st.session_state.kb, api_key)
     st.title("Lancia StratOS AI")
+    
     if data_file:
         df = st.session_state.de.clean_and_load(data_file)
         if df is not None:
+            # 1. AI Realise Audit View
+            st.subheader("📊 Lancia AI Realise Audit")
             audit = st.session_state.de.run_ai_realise_audit(df)
-            st.metric("AI Realise Score", f"{audit['score']}%", audit['status'])
-            if st.button("RUN STRATEGY"):
-                stats, charts = st.session_state.de.analyze_and_plot(df)
-                _, synthesis = orch.run_debate("Analyze margins", stats, industry)
-                st.subheader("Strategy Synthesis")
-                st.markdown(synthesis)
-                for c in charts: st.image(c)
-                path = st.session_state.re.create_deck(synthesis, charts)
-                with open(path, "rb") as f:
-                    st.download_button("Download Report", f, file_name="Lancia_Strategy.pptx")
+            col1, col2 = st.columns(2)
+            col1.metric("Data Maturity", f"{audit['score']}%")
+            col2.info(f"Status: {audit['status']}")
+            
+            if st.button("RUN FULL STRATEGY & RESULTS365"):
+                with st.spinner("Processing..."):
+                    stats, charts = st.session_state.de.analyze_and_plot(df)
+                    _, synthesis = orch.run_debate("Analyze margins", stats, industry)
+                    
+                    # 2. Results365 View
+                    st.divider()
+                    st.subheader("✅ Lancia Results365 Performance Health")
+                    health = st.session_state.re.run_results365_check(synthesis, orch)
+                    st.success(health)
+                    
+                    # 3. Content View
+                    st.divider()
+                    st.subheader("Strategic Synthesis")
+                    st.markdown(synthesis)
+                    for c in charts: st.image(c)
+                    
+                    path = st.session_state.re.create_deck(synthesis, charts)
+                    with open(path, "rb") as f:
+                        st.download_button("Download Lancia PPT", f, file_name="Lancia_Strategy.pptx")
+    else:
+        st.info("👈 Upload a file in the sidebar to start the Audit.")
 else:
     st.warning("Please enter your API Key.")
